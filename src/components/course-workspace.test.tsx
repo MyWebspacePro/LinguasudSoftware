@@ -65,12 +65,13 @@ describe("CourseWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Kurs bearbeiten" }));
     fireEvent.change(screen.getByLabelText("Kurskennung bearbeiten"), { target: { value: "DEUA102" } });
     fireEvent.change(screen.getByLabelText("Niveau bearbeiten"), { target: { value: "A1.2" } });
+    fireEvent.change(screen.getByLabelText("Kursdauer"), { target: { value: "120" } });
     fireEvent.change(screen.getByLabelText("Kursstatus"), { target: { value: "paused" } });
     fireEvent.click(screen.getByRole("button", { name: "Kursdaten speichern" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/courses/course-1", expect.objectContaining({ method: "PATCH" })));
     const courseUpdate = fetchMock.mock.calls.find(([url, init]) => url === "/api/courses/course-1" && init?.method === "PATCH");
-    expect(JSON.parse(String(courseUpdate?.[1]?.body))).toEqual({ code: "DEUA102", level: "A1.2", status: "paused" });
+    expect(JSON.parse(String(courseUpdate?.[1]?.body))).toEqual({ code: "DEUA102", level: "A1.2", status: "paused", durationMinutes: 120 });
 
     await screen.findByRole("button", { name: "Kurs bearbeiten" });
     fireEvent.click(screen.getByRole("button", { name: "Kurs bearbeiten" }));

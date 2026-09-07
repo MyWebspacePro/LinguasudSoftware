@@ -10,7 +10,8 @@ const updateCourseSchema = z.object({
   level: courseLevelSchema.optional(),
   code: z.string().trim().min(5).max(40).regex(/^[A-Z0-9]+$/).optional(),
   status: z.enum(["planned", "active", "paused", "completed", "cancelled"]).optional(),
-}).refine((value) => value.level !== undefined || value.code !== undefined || value.status !== undefined, { message: "Mindestens eine Änderung ist erforderlich." });
+  durationMinutes: z.number().int().min(15).max(360).multipleOf(15).optional(),
+}).refine((value) => value.level !== undefined || value.code !== undefined || value.status !== undefined || value.durationMinutes !== undefined, { message: "Mindestens eine Änderung ist erforderlich." });
 
 /**
  * Return one complete course aggregate. Every related record keeps its
@@ -45,10 +46,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ cours
     const user = await requireRole("office", "teacher");
     const { courseId } = await context.params;
     const input = updateCourseSchema.parse(await request.json());
-    if ((input.code || input.status) && user.role !== "office") return NextResponse.json({ error: "Nur das Büro darf Kurskennung und Kursstatus ändern." }, { status: 403 });
+    if ((input.code || input.status || input.durationMinutes !== undefined) && user.role !== "office") return NextResponse.json({ error: "Nur das Büro darf Kurskennung, Kursstatus und Dauer ändern." }, { status: 403 });
     const [course] = user.role === "office"
-      ? await db()`SELECT id, code, teacher_id, language, level, status FROM courses WHERE id = ${courseId}`
-      : await db()`SELECT id, code, teacher_id, language, level, status FROM courses WHERE id = ${courseId} AND teacher_id = ${user.id}`;
+      ? await db()`SELECT id, code, teacher_id, language, level, status, duration_minutes FROM courses WHERE id = ${courseId}`
+      : await db()`SELECT id, code, teacher_id, language, level, status, duration_minutes FROM courses WHERE id = ${courseId} AND teacher_id = ${user.id}`;
     if (!course) return NextResponse.json({ error: "Kurs wurde nicht gefunden." }, { status: 404 });
     if (input.level !== undefined && input.level !== course.level) {
       const qualificationLevel = input.level.slice(0, 2).replace("+", "");
@@ -56,10 +57,34 @@ export async function PATCH(request: Request, context: { params: Promise<{ cours
       if (!qualification) return NextResponse.json({ error: `Die Lehrperson ist für ${course.language} ${input.level} nicht qualifiziert.` }, { status: 409 });
     }
     const sql = db();
-    const [updated] = await sql`UPDATE courses SET level = COALESCE(${input.level ?? null}, level), code = COALESCE(${input.code ?? null}, code), status = COALESCE(${input.status ?? null}, status) WHERE id = ${courseId} RETURNING *`;
-    if (input.status === "cancelled") {
-      await sql`UPDATE lessons SET status = 'cancelled', cancellation_reason = 'Kurs abgesagt' WHERE course_id = ${courseId} AND status = 'scheduled' AND starts_at >= now()`;
+    if (input.durationMinutes !== undefined && input.durationMinutes !== Number(course.duration_minutes)) {
+      const [conflict] = await sql`
+        SELECT current_lesson.id
+        FROM lessons AS current_lesson
+        JOIN lessons AS other_lesson
+          ON other_lesson.id <> current_lesson.id
+          AND other_lesson.status = 'scheduled'
+          AND other_lesson.starts_at < current_lesson.starts_at + ${input.durationMinutes} * interval '1 minute'
+          AND other_lesson.starts_at + other_lesson.duration_minutes * interval '1 minute' > current_lesson.starts_at
+          AND (other_lesson.room_id = current_lesson.room_id OR other_lesson.teacher_id = current_lesson.teacher_id)
+        WHERE current_lesson.course_id = ${courseId}
+          AND current_lesson.status = 'scheduled'
+          AND current_lesson.starts_at >= now()
+        LIMIT 1
+      `;
+      if (conflict) return NextResponse.json({ error: "Die neue Kursdauer kollidiert mit einer zukünftigen Raumbelegung oder Lehrperson." }, { status: 409 });
     }
+    const [updated] = await sql.begin(async (transaction) => {
+      const [updatedCourse] = await transaction`UPDATE courses SET level = COALESCE(${input.level ?? null}, level), code = COALESCE(${input.code ?? null}, code), status = COALESCE(${input.status ?? null}, status), duration_minutes = COALESCE(${input.durationMinutes ?? null}, duration_minutes) WHERE id = ${courseId} RETURNING *`;
+      if (input.durationMinutes !== undefined && input.durationMinutes !== Number(course.duration_minutes)) {
+        await transaction`UPDATE course_schedules SET duration_minutes = ${input.durationMinutes}, updated_at = now() WHERE course_id = ${courseId}`;
+        await transaction`UPDATE lessons SET duration_minutes = ${input.durationMinutes} WHERE course_id = ${courseId} AND status = 'scheduled' AND starts_at >= now()`;
+      }
+      if (input.status === "cancelled") {
+        await transaction`UPDATE lessons SET status = 'cancelled', cancellation_reason = 'Kurs abgesagt' WHERE course_id = ${courseId} AND status = 'scheduled' AND starts_at >= now()`;
+      }
+      return [updatedCourse];
+    });
     if (user.role === "office" && input.code !== undefined) {
       // A course-code update is the office's acknowledgement of a teacher's
       // level-change task. Close only the open tasks for this exact course.
