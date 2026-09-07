@@ -42,4 +42,20 @@ describe("DashboardNotifications", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Prüfen" }));
     expect(onOpenAttendance).toHaveBeenCalledWith("2026-09-07");
   });
+
+  it("shows a retryable error when office tasks cannot be loaded", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      calls += 1;
+      return calls === 1
+        ? { ok: false, json: async () => ({ error: "Nicht berechtigt." }) }
+        : { ok: true, json: async () => ({ tasks: [] }) };
+    }));
+    render(<DashboardNotifications />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Nicht berechtigt.");
+    fireEvent.click(screen.getByRole("button", { name: "Erneut versuchen" }));
+
+    expect(await screen.findByText("Keine offenen Aufgaben.")).toBeInTheDocument();
+  });
 });

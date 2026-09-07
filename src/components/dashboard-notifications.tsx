@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type DashboardTask = {
   id: string;
@@ -30,19 +30,23 @@ export function DashboardNotifications({ onOpenCourse, onOpenAttendance }: { onO
   const [savingTaskId, setSavingTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const loadTasks = useCallback(async (signal?: AbortSignal) => {
+    setError(null);
+    try {
+      const response = await fetch("/api/notifications", { cache: "no-store", credentials: "same-origin", signal });
+      const payload = await response.json() as { tasks?: DashboardTask[]; notifications?: DashboardTask[]; error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Büro-Aufgaben konnten nicht geladen werden.");
+      if (!signal?.aborted) setTasks(payload.tasks ?? payload.notifications ?? []);
+    } catch (loadError) {
+      if (!signal?.aborted) setError(loadError instanceof Error ? loadError.message : "Büro-Aufgaben konnten nicht geladen werden.");
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
-    queueMicrotask(async () => {
-      try {
-        const response = await fetch("/api/notifications", { cache: "no-store", credentials: "same-origin", signal: controller.signal });
-        const payload = await response.json() as { tasks?: DashboardTask[]; notifications?: DashboardTask[] };
-        if (response.ok && !controller.signal.aborted) setTasks(payload.tasks ?? payload.notifications ?? []);
-      } catch {
-        // A task feed must never make the room planner unusable.
-      }
-    });
+    queueMicrotask(() => void loadTasks(controller.signal));
     return () => controller.abort();
-  }, []);
+  }, [loadTasks]);
 
   async function completeTask(taskId: string) {
     setSavingTaskId(taskId);
@@ -66,7 +70,7 @@ export function DashboardNotifications({ onOpenCourse, onOpenAttendance }: { onO
 
   return <section className="dashboard-notifications" aria-label="Offene Büro-Aufgaben">
     <div className="dashboard-notifications__heading"><strong>Büro-Aufgaben</strong><span>{tasks.length}</span></div>
-    {error ? <p className="dashboard-notifications__error" role="alert">{error}</p> : null}
+    {error ? <p className="dashboard-notifications__error" role="alert">{error} <button className="quiet-button" onClick={() => void loadTasks()} type="button">Erneut versuchen</button></p> : null}
     {tasks.length === 0 ? <p className="dashboard-notifications__empty">Keine offenen Aufgaben.</p> : <div className="dashboard-notifications__list">{tasks.map((task) => <article key={task.id}><span className="dashboard-notifications__badge">{taskTypeLabel(task.task_type)}</span><div><strong>{task.title}</strong><p>{task.course_id && task.course_code ? <button className="course-link" onClick={() => onOpenCourse?.(task.course_id as string)} type="button">{task.course_code}</button> : <b>{task.course_code ?? "Kurs"}</b>}{task.language || task.level ? ` · ${task.language ?? ""} ${task.level ?? ""}` : ""}</p><p>{task.description}</p><small>{task.actor_name ?? "System"} · {taskDateFormatter.format(new Date(task.created_at))}</small></div>{task.task_type === "attendance_excuse_review" && task.lesson_date ? <button className="dashboard-notifications__task-action" onClick={() => onOpenAttendance?.(task.lesson_date as string)} type="button">Prüfen</button> : <button className="dashboard-notifications__task-action" disabled={savingTaskId === task.id} onClick={() => void completeTask(task.id)} type="button">{savingTaskId === task.id ? "…" : "Erledigt"}</button>}</article>)}</div>}
   </section>;
 }
