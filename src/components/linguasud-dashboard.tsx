@@ -3,7 +3,6 @@
 import { type CSSProperties, type DragEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
-  dayOptions,
   demoLessons,
   formatTime,
   locations as demoLocations,
@@ -114,6 +113,25 @@ function dateAndMinutes(startsAt: string) {
   };
 }
 
+function zurichDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Zurich", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function shiftDate(dateString: string, days: number) {
+  const date = new Date(`${dateString}T12:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDayButton(dateString: string) {
+  return new Intl.DateTimeFormat("de-CH", { weekday: "short", day: "numeric", month: "short", timeZone: "Europe/Zurich" })
+    .format(new Date(`${dateString}T12:00:00.000Z`));
+}
+
 function toPlannerLessons(apiLessons: ApiLesson[]): PlannerLesson[] {
   return apiLessons.map((lesson) => {
     const { date, startMinutes } = dateAndMinutes(lesson.starts_at);
@@ -137,7 +155,7 @@ function toPlannerLessons(apiLessons: ApiLesson[]): PlannerLesson[] {
 
 export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "office" } }: { user?: DashboardUser }) {
   const [activeView, setActiveView] = useState<View>("raumplan");
-  const [activeDay, setActiveDay] = useState(dayOptions[0].value);
+  const [activeDay, setActiveDay] = useState(zurichDate);
   const activeRole = user.role;
   const [lessons, setLessons] = useState<PlannerLesson[]>(demoLessons);
   const [plannerRooms, setPlannerRooms] = useState<PlannerRoom[]>(demoRooms);
@@ -160,6 +178,10 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
     () => Array.from({ length: (DAY_END - DAY_START) / SLOT_MINUTES }, (_, index) => DAY_START + index * SLOT_MINUTES),
     [],
   );
+  const dateOptions = useMemo(() => [-1, 0, 1, 2, 3].map((offset) => {
+    const value = shiftDate(activeDay, offset);
+    return { value, label: formatDayButton(value) };
+  }), [activeDay]);
 
   const loadRoomPlan = useCallback(async (signal?: AbortSignal) => {
     setPlannerStatus("loading");
@@ -306,7 +328,10 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
             <h2 className="sr-only" id="room-plan-title">Tägliches Raumraster</h2>
             <div className="planner-toolbar">
               <div className="date-controls" aria-label="Tag auswählen">
-                {dayOptions.map((day) => <button className={activeDay === day.value ? "date-button is-active" : "date-button"} key={day.value} onClick={() => setActiveDay(day.value)} type="button">{day.label}</button>)}
+                <button aria-label="Vorheriger Tag" className="quiet-button" onClick={() => setActiveDay((day) => shiftDate(day, -1))} type="button">‹</button>
+                {dateOptions.map((day) => <button className={activeDay === day.value ? "date-button is-active" : "date-button"} key={day.value} onClick={() => setActiveDay(day.value)} type="button">{day.label}</button>)}
+                <button aria-label="Nächster Tag" className="quiet-button" onClick={() => setActiveDay((day) => shiftDate(day, 1))} type="button">›</button>
+                <input aria-label="Datum wählen" onChange={(event) => event.target.value && setActiveDay(event.target.value)} type="date" value={activeDay} />
               </div>
               <div className="planner-toolbar__right"><span className="legend"><i /> Lektion <i className="legend__buffer" /> 15 Min. Puffer</span><button className="quiet-button" type="button" onClick={() => void loadRoomPlan()}>↻</button></div>
             </div>
