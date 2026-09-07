@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -20,11 +21,27 @@ export async function PATCH(request: Request, context: { params: Promise<{ cours
       ? await db()`SELECT id, teacher_id, language, level FROM courses WHERE id = ${courseId}`
       : await db()`SELECT id, teacher_id, language, level FROM courses WHERE id = ${courseId} AND teacher_id = ${user.id}`;
     if (!course) return NextResponse.json({ error: "Kurs wurde nicht gefunden." }, { status: 404 });
-    const requestedLevel = input.level ?? course.level;
-    const qualificationLevel = requestedLevel.slice(0, 2).replace("+", "");
-    const [qualification] = await db()`SELECT 1 FROM teacher_teaching_levels WHERE teacher_id = ${course.teacher_id} AND lower(language) = lower(${course.language}) AND level = ${qualificationLevel} LIMIT 1`;
-    if (!qualification) return NextResponse.json({ error: `Die Lehrperson ist für ${course.language} ${requestedLevel} nicht qualifiziert.` }, { status: 409 });
-    const [updated] = await db()`UPDATE courses SET level = COALESCE(${input.level ?? null}, level), code = COALESCE(${input.code ?? null}, code) WHERE id = ${courseId} RETURNING *`;
+    if (input.level !== undefined && input.level !== course.level) {
+      const qualificationLevel = input.level.slice(0, 2).replace("+", "");
+      const [qualification] = await db()`SELECT 1 FROM teacher_teaching_levels WHERE teacher_id = ${course.teacher_id} AND lower(language) = lower(${course.language}) AND level = ${qualificationLevel} LIMIT 1`;
+      if (!qualification) return NextResponse.json({ error: `Die Lehrperson ist für ${course.language} ${input.level} nicht qualifiziert.` }, { status: 409 });
+    }
+    const sql = db();
+    const [updated] = await sql`UPDATE courses SET level = COALESCE(${input.level ?? null}, level), code = COALESCE(${input.code ?? null}, code) WHERE id = ${courseId} RETURNING *`;
+    if (user.role === "teacher" && input.level !== undefined && input.level !== course.level) {
+      const historyId = randomUUID();
+      const summary = `${user.name} hat ${course.code} von ${course.level} auf ${input.level} geändert`;
+      await sql`INSERT INTO change_history (id, entity_type, entity_id, event_type, summary, before_data, after_data, actor_id) VALUES (${historyId}, 'course', ${courseId}, 'level_changed', ${summary}, ${JSON.stringify({ level: course.level, code: course.code })}, ${JSON.stringify({ level: input.level, code: course.code })}, ${user.id})`;
+      await sql`
+        INSERT INTO office_tasks
+          (id, task_type, entity_type, entity_id, title, description, source_history_id, created_by)
+        VALUES
+          (${randomUUID()}, 'course_level_changed', 'course', ${courseId},
+           'Kursniveau prüfen',
+           ${`${summary}. Kursbezeichnung/Kurskennung im Büro prüfen.`},
+           ${historyId}, ${user.id})
+      `;
+    }
     return NextResponse.json({ course: updated });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Ungültige Kursdaten." }, { status: 400 });

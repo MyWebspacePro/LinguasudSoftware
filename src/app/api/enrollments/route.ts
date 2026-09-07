@@ -30,7 +30,16 @@ export async function GET() {
       ? await sql`
           SELECT enrollments.*, courses.code AS course_code, courses.language AS course_language,
                  courses.level AS course_level, courses.status AS course_status,
-                 participants.name AS participant_name, participants.email AS participant_email
+                 participants.name AS participant_name, participants.email AS participant_email,
+                 (SELECT json_build_object(
+                    'present', count(*) FILTER (WHERE a.status = 'present')::int,
+                    'excused', count(*) FILTER (WHERE a.status = 'excused')::int,
+                    'unexcused', count(*) FILTER (WHERE a.status = 'unexcused')::int,
+                    'online', count(*) FILTER (WHERE a.status = 'online')::int,
+                    'trial', count(*) FILTER (WHERE a.status = 'trial')::int,
+                    'cancelled', count(*) FILTER (WHERE a.status = 'cancelled_short_notice')::int
+                  ) FROM attendance a WHERE a.enrollment_id = enrollments.id) AS attendance_summary,
+                 COALESCE((SELECT json_agg(json_build_object('id', p.id, 'startsOn', p.starts_on, 'endsOn', p.ends_on, 'reason', p.reason) ORDER BY p.starts_on DESC) FROM enrollment_pauses p WHERE p.enrollment_id = enrollments.id), '[]') AS pauses
           FROM enrollments
           JOIN courses ON courses.id = enrollments.course_id
           JOIN users AS participants ON participants.id = enrollments.participant_id
@@ -40,7 +49,16 @@ export async function GET() {
         ? await sql`
             SELECT enrollments.*, courses.code AS course_code, courses.language AS course_language,
                    courses.level AS course_level, courses.status AS course_status,
-                   participants.name AS participant_name, participants.email AS participant_email
+                   participants.name AS participant_name, participants.email AS participant_email,
+                   (SELECT json_build_object(
+                      'present', count(*) FILTER (WHERE a.status = 'present')::int,
+                      'excused', count(*) FILTER (WHERE a.status = 'excused')::int,
+                      'unexcused', count(*) FILTER (WHERE a.status = 'unexcused')::int,
+                      'online', count(*) FILTER (WHERE a.status = 'online')::int,
+                      'trial', count(*) FILTER (WHERE a.status = 'trial')::int,
+                      'cancelled', count(*) FILTER (WHERE a.status = 'cancelled_short_notice')::int
+                    ) FROM attendance a WHERE a.enrollment_id = enrollments.id) AS attendance_summary,
+                   COALESCE((SELECT json_agg(json_build_object('id', p.id, 'startsOn', p.starts_on, 'endsOn', p.ends_on, 'reason', p.reason) ORDER BY p.starts_on DESC) FROM enrollment_pauses p WHERE p.enrollment_id = enrollments.id), '[]') AS pauses
             FROM enrollments
             JOIN courses ON courses.id = enrollments.course_id
             JOIN users AS participants ON participants.id = enrollments.participant_id
@@ -49,7 +67,16 @@ export async function GET() {
           `
         : await sql`
             SELECT enrollments.*, courses.code AS course_code, courses.language AS course_language,
-                   courses.level AS course_level, courses.status AS course_status
+                   courses.level AS course_level, courses.status AS course_status,
+                   (SELECT json_build_object(
+                      'present', count(*) FILTER (WHERE a.status = 'present')::int,
+                      'excused', count(*) FILTER (WHERE a.status = 'excused')::int,
+                      'unexcused', count(*) FILTER (WHERE a.status = 'unexcused')::int,
+                      'online', count(*) FILTER (WHERE a.status = 'online')::int,
+                      'trial', count(*) FILTER (WHERE a.status = 'trial')::int,
+                      'cancelled', count(*) FILTER (WHERE a.status = 'cancelled_short_notice')::int
+                    ) FROM attendance a WHERE a.enrollment_id = enrollments.id) AS attendance_summary,
+                   COALESCE((SELECT json_agg(json_build_object('id', p.id, 'startsOn', p.starts_on, 'endsOn', p.ends_on, 'reason', p.reason) ORDER BY p.starts_on DESC) FROM enrollment_pauses p WHERE p.enrollment_id = enrollments.id), '[]') AS pauses
             FROM enrollments
             JOIN courses ON courses.id = enrollments.course_id
             WHERE enrollments.participant_id = ${user.id}
@@ -63,7 +90,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requireRole("office");
+    const actor = await requireRole("office");
     const input = createEnrollmentSchema.parse(await request.json());
     const sql = db();
 
@@ -75,10 +102,53 @@ export async function POST(request: Request) {
     `;
     if (!participant) return NextResponse.json({ error: "Teilnehmende Person wurde nicht gefunden." }, { status: 404 });
 
+    const [existingEnrollment] = await sql`
+      SELECT * FROM enrollments
+      WHERE course_id = ${input.courseId} AND participant_id = ${input.participantId}
+    `;
+    if (existingEnrollment?.active) {
+      return NextResponse.json({ error: "Die Person ist bereits in diesem Kurs eingeschrieben." }, { status: 409 });
+    }
+    if (existingEnrollment) {
+      const [enrollment] = await sql`
+        UPDATE enrollments SET
+          billing_type = ${input.billingType},
+          credit_lessons = ${input.creditLessons ?? null},
+          payment_status = ${input.paymentStatus ?? "open"},
+          purchased_amount = ${input.purchasedAmount ?? null},
+          payer_name = ${input.payerName ?? null},
+          case_reference = ${input.caseReference ?? null},
+          approved_lessons = ${input.approvedLessons ?? null},
+          approved_amount = ${input.approvedAmount ?? null},
+          valid_from = ${input.validFrom ?? null},
+          valid_until = ${input.validUntil ?? null},
+          tariff = ${input.tariff ?? null},
+          invoice_recipient = ${input.invoiceRecipient ?? null},
+          active = true
+        WHERE id = ${existingEnrollment.id}
+        RETURNING *
+      `;
+      await sql`
+        INSERT INTO change_history
+          (id, entity_type, entity_id, event_type, summary, before_data, after_data, actor_id)
+        VALUES
+          (${randomUUID()}, 'enrollment', ${existingEnrollment.id}, 'reactivated',
+           'Teilnahme erneut aktiviert', ${JSON.stringify(existingEnrollment)}, ${JSON.stringify(enrollment)}, ${actor.id})
+      `;
+      return NextResponse.json({ enrollment });
+    }
+
     const [enrollment] = await sql`
       INSERT INTO enrollments (id, course_id, participant_id, billing_type, credit_lessons, payment_status, purchased_amount, payer_name, case_reference, approved_lessons, approved_amount, valid_from, valid_until, tariff, invoice_recipient)
       VALUES (${randomUUID()}, ${input.courseId}, ${input.participantId}, ${input.billingType}, ${input.creditLessons ?? null}, ${input.paymentStatus ?? "open"}, ${input.purchasedAmount ?? null}, ${input.payerName ?? null}, ${input.caseReference ?? null}, ${input.approvedLessons ?? null}, ${input.approvedAmount ?? null}, ${input.validFrom ?? null}, ${input.validUntil ?? null}, ${input.tariff ?? null}, ${input.invoiceRecipient ?? null})
       RETURNING *
+    `;
+    await sql`
+      INSERT INTO change_history
+        (id, entity_type, entity_id, event_type, summary, after_data, actor_id)
+      VALUES
+        (${randomUUID()}, 'enrollment', ${enrollment.id}, 'created',
+         'Teilnahme angelegt', ${JSON.stringify(enrollment)}, ${actor.id})
     `;
     return NextResponse.json({ enrollment }, { status: 201 });
   } catch (error) {

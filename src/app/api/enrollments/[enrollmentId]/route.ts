@@ -56,3 +56,44 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ en
     return NextResponse.json({ error: "Abrechnungsdaten konnten nicht gespeichert werden." }, { status: 500 });
   }
 }
+
+/**
+ * End a course participation without deleting its record. Keeping the
+ * enrollment row preserves billing and attendance history while removing the
+ * person from the course's active roster.
+ */
+export async function DELETE(_request: Request, { params }: { params: Promise<{ enrollmentId: string }> }) {
+  try {
+    const actor = await requireRole("office");
+    const { enrollmentId } = await params;
+    const sql = db();
+    const [existing] = await sql`
+      SELECT enrollments.*, courses.code AS course_code, participants.name AS participant_name
+      FROM enrollments
+      JOIN courses ON courses.id = enrollments.course_id
+      JOIN users AS participants ON participants.id = enrollments.participant_id
+      WHERE enrollments.id = ${enrollmentId}
+    `;
+    if (!existing) return NextResponse.json({ error: "Kursteilnahme wurde nicht gefunden." }, { status: 404 });
+    if (!existing.active) return NextResponse.json({ enrollment: existing });
+
+    const [enrollment] = await sql`
+      UPDATE enrollments
+      SET active = false
+      WHERE id = ${enrollmentId}
+      RETURNING *
+    `;
+    await sql`
+      INSERT INTO change_history
+        (id, entity_type, entity_id, event_type, summary, before_data, after_data, actor_id)
+      VALUES
+        (${randomUUID()}, 'enrollment', ${enrollmentId}, 'removed',
+         ${`Teilnahme ${existing.participant_name} aus ${existing.course_code} entfernt`},
+         ${JSON.stringify(existing)}, ${JSON.stringify(enrollment)}, ${actor.id})
+    `;
+    return NextResponse.json({ enrollment });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") return NextResponse.json({ error: "Nicht berechtigt." }, { status: 403 });
+    return NextResponse.json({ error: "Teilnahme konnte nicht beendet werden." }, { status: 500 });
+  }
+}

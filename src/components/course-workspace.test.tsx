@@ -14,6 +14,7 @@ describe("CourseWorkspace", () => {
       if (url === "/api/teachers") return { ok: true, json: async () => ({ teachers: [{ id: "teacher-1", name: "Mia Muster", teaching_levels: [{ language: "Deutsch", levels: ["A1"] }] }] }) };
       if (url === "/api/rooms") return { ok: true, json: async () => ({ rooms: [{ id: "room-1", name: "A1", location_name: "Schaffhausen" }] }) };
       if (url === "/api/course-schedules") return { ok: true, json: async () => ({ schedules: [] }) };
+      if (url === "/api/enrollments") return { ok: true, json: async () => ({ enrollments: [] }) };
       return { ok: false, json: async () => ({ error: "Unbekannte Anfrage" }) };
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -54,6 +55,7 @@ describe("CourseWorkspace", () => {
       if (url === "/api/course-schedules" && init?.method === "POST") return { ok: true, json: async () => ({ schedule: { ...schedule, id: "schedule-2" } }) };
       if (url === "/api/course-schedules" && init?.method === "DELETE") return { ok: true, json: async () => ({}) };
       if (url === "/api/course-schedules") return { ok: true, json: async () => ({ schedules: [schedule] }) };
+      if (url === "/api/enrollments") return { ok: true, json: async () => ({ enrollments: [] }) };
       return { ok: false, json: async () => ({ error: "Unbekannte Anfrage" }) };
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -84,5 +86,29 @@ describe("CourseWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Termin löschen" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/course-schedules", expect.objectContaining({ method: "DELETE" })));
+  });
+
+  it("shows the course roster and ends an active participation", async () => {
+    const course = { id: "course-1", code: "DEUA101", language: "Deutsch", level: "A1", duration_minutes: 90, status: "active", teacher_name: "Mia Muster" };
+    const enrollment = { id: "enrollment-1", course_id: "course-1", participant_name: "Lea Baumann", participant_email: "lea@example.test", active: true };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/courses") return { ok: true, json: async () => ({ courses: [course] }) };
+      if (url === "/api/teachers") return { ok: true, json: async () => ({ teachers: [] }) };
+      if (url === "/api/rooms") return { ok: true, json: async () => ({ rooms: [] }) };
+      if (url === "/api/course-schedules") return { ok: true, json: async () => ({ schedules: [] }) };
+      if (url === "/api/enrollments" && !init?.method) return { ok: true, json: async () => ({ enrollments: [enrollment] }) };
+      if (url === "/api/enrollments/enrollment-1" && init?.method === "DELETE") return { ok: true, json: async () => ({ enrollment: { ...enrollment, active: false } }) };
+      return { ok: false, json: async () => ({ error: "Unbekannte Anfrage" }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("confirm", vi.fn(() => true));
+    render(<CourseWorkspace focusCourseId="course-1" />);
+
+    await screen.findByRole("heading", { name: "Teilnehmende in DEUA101" });
+    expect(screen.getByText("Lea Baumann")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Teilnahme beenden" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/enrollments/enrollment-1", expect.objectContaining({ method: "DELETE" })));
+    expect(screen.getByText("Teilnahme beendet")).toBeInTheDocument();
   });
 });

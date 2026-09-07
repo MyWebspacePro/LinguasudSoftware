@@ -19,6 +19,7 @@ import { BillingWorkspace } from "@/components/billing-workspace";
 import { RoomsWorkspace } from "@/components/rooms-workspace";
 import { DashboardOverview } from "@/components/dashboard-overview";
 import { OfficeAttendanceWorkspace } from "@/components/office-attendance-workspace";
+import { DashboardNotifications } from "@/components/dashboard-notifications";
 
 const DAY_START = 6 * 60;
 const DAY_END = 22 * 60 + 30;
@@ -177,6 +178,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
   const [draggingLessonId, setDraggingLessonId] = useState<string | null>(null);
   const [lastMove, setLastMove] = useState<Move | null>(null);
   const [courseOpenRequest, setCourseOpenRequest] = useState(0);
+  const [focusCourseId, setFocusCourseId] = useState<string | null>(null);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
   const [notice, setNotice] = useState("Raumplan wird geladen.");
 
@@ -337,7 +339,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
         {activeRole === "office" ? <nav aria-label="Hauptnavigation">
           <p className="nav-label">Organisation</p>
           {navigation.map(([view, label]) => (
-            <button className={`nav-item ${activeView === view ? "nav-item--active" : ""}`} key={view} onClick={() => { setCourseOpenRequest(0); setActiveView(view); }} type="button">
+            <button className={`nav-item ${activeView === view ? "nav-item--active" : ""}`} key={view} onClick={() => { setCourseOpenRequest(0); setFocusCourseId(null); setActiveView(view); }} type="button">
               <span aria-hidden="true">{view === "dashboard" ? "▦" : view === "teilnehmer" ? "◉" : view === "lehrpersonen" ? "♧" : view === "kurse" ? "◫" : view === "raeume" ? "▤" : "⊞"}</span>{label}
             </button>
           ))}
@@ -354,6 +356,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
         </header>
 
         {activeRole !== "office" ? <RoleWorkspace role={activeRole} userName={user.name} onNotice={setNotice} /> : activeView === "dashboard" ? <>
+          <DashboardNotifications />
           <section className="planner-panel" aria-labelledby="room-plan-title">
             <h2 className="sr-only" id="room-plan-title">Tägliches Raumraster</h2>
             <div className="planner-toolbar">
@@ -390,7 +393,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
           <DashboardOverview />
           {isAttendanceOpen ? <div className="dialog-backdrop" role="presentation"><div className="attendance-dialog attendance-dialog--wide"><button aria-label="Anwesenheiten schliessen" className="dialog-close" onClick={() => setIsAttendanceOpen(false)} type="button">×</button><OfficeAttendanceWorkspace onNotice={(message) => { setNotice(message); setIsAttendanceOpen(false); }} /></div></div> : null}
         </>
-        : activeView === "teilnehmer" ? <PeopleWorkspace mode="participants" /> : activeView === "lehrpersonen" ? <PeopleWorkspace mode="teachers" /> : activeView === "kurse" ? <CourseWorkspace initiallyOpen={courseOpenRequest > 0} key={courseOpenRequest} /> : activeView === "raeume" ? <RoomsWorkspace /> : <BillingWorkspace />}
+        : activeView === "teilnehmer" ? <PeopleWorkspace mode="participants" onOpenCourse={(courseId) => { setFocusCourseId(courseId); setActiveView("kurse"); }} /> : activeView === "lehrpersonen" ? <PeopleWorkspace mode="teachers" /> : activeView === "kurse" ? <CourseWorkspace initiallyOpen={courseOpenRequest > 0} focusCourseId={focusCourseId} key={`${courseOpenRequest}-${focusCourseId ?? "all"}`} /> : activeView === "raeume" ? <RoomsWorkspace /> : <BillingWorkspace />}
       </main>
 
       {selectedLesson ? <LessonDialog lesson={selectedLesson} rooms={plannerRooms} locations={plannerLocations} onClose={() => setSelectedLessonId(null)} onCancel={async () => {

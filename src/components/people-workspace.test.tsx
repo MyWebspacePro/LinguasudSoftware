@@ -35,4 +35,43 @@ describe("PeopleWorkspace", () => {
     const enrollmentCall = fetchMock.mock.calls.find(([url, init]) => url === "/api/enrollments" && init?.method === "POST");
     expect(JSON.parse(String(enrollmentCall?.[1]?.body))).toMatchObject({ participantId: "participant-1", courseId: "course-1", billingType: "private", creditLessons: 14 });
   });
+
+  it("shows attendance on the participant and records a course pause", async () => {
+    const enrollment = {
+      id: "enrollment-1",
+      participant_id: "participant-1",
+      course_id: "course-1",
+      billing_type: "private",
+      credit_lessons: 14,
+      active: true,
+      course_code: "DEUA101",
+      course_language: "Deutsch",
+      course_level: "A1",
+      attendance_summary: { present: 3, excused: 1, unexcused: 0, online: 0, trial: 0, cancelled: 0 },
+      pauses: [],
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/participants") return { ok: true, json: async () => ({ participants: [{ id: "participant-1", name: "Lea Baumann", email: "lea@example.test", role: "participant" }] }) };
+      if (url === "/api/courses") return { ok: true, json: async () => ({ courses: [] }) };
+      if (url === "/api/enrollments" && init?.method === "POST") return { ok: true, json: async () => ({ enrollment }) };
+      if (url === "/api/enrollments/enrollment-1/pauses" && init?.method === "POST") return { ok: true, json: async () => ({ pause: { id: "pause-1" } }) };
+      if (url === "/api/enrollments") return { ok: true, json: async () => ({ enrollments: [enrollment] }) };
+      return { ok: false, json: async () => ({ error: "Unbekannte Anfrage" }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PeopleWorkspace mode="participants" />);
+
+    await screen.findByText("Lea Baumann");
+    expect(screen.getByText("3 anwesend · 1 entschuldigt · 0 unentschuldigt")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Pause erfassen" }));
+    fireEvent.change(screen.getByLabelText("Pause von"), { target: { value: "2026-09-10" } });
+    fireEvent.change(screen.getByLabelText("Pause bis"), { target: { value: "2026-09-20" } });
+    fireEvent.change(screen.getByLabelText("Grund / Hinweis"), { target: { value: "Ferien" } });
+    fireEvent.click(screen.getByRole("button", { name: "Pause speichern" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/enrollments/enrollment-1/pauses", expect.objectContaining({ method: "POST" })));
+    const pauseCall = fetchMock.mock.calls.find(([url, init]) => url === "/api/enrollments/enrollment-1/pauses" && init?.method === "POST");
+    expect(JSON.parse(String(pauseCall?.[1]?.body))).toEqual({ startsOn: "2026-09-10", endsOn: "2026-09-20", reason: "Ferien" });
+  });
 });

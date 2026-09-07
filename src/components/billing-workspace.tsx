@@ -6,6 +6,7 @@ type BillingEnrollment = {
   enrollment_id: string;
   billing_type: "private" | "authority";
   credit_lessons: number | null;
+  payment_status?: "open" | "partially_paid" | "paid" | "overdue";
   participant_name: string;
   course_code: string;
   consumedLessons: number;
@@ -44,11 +45,12 @@ export function BillingWorkspace() {
     lowCredit: items.filter((item) => item.lowCredit).length,
     authorityLessons: items.filter((item) => item.billing_type === "authority").reduce((sum, item) => sum + item.billableConfirmedLessons, 0),
     privateItems: items.filter((item) => item.billing_type === "private").length,
+    overdue: items.filter((item) => item.payment_status === "overdue").length,
   }), [items]);
 
   return <section className="management-preview" aria-labelledby="billing-title">
-    <div className="preview-intro"><p className="eyebrow">Abrechnung & Guthaben</p><h2 id="billing-title">Abrechnung <span>{items.length}</span></h2><p>Private Guthaben werden mit bestätigten Anwesenheiten verrechnet. Bei Kostenträgern sind nur bestätigte Lektionen abrechnungsbereit.</p><div className="billing-summary"><span>{summary.lowCredit} Guthaben niedrig</span><span>{summary.authorityLessons} Lektionen Kostenträger</span><span>{summary.privateItems} private Teilnahmen</span></div></div>
+    <div className="preview-intro"><p className="eyebrow">Abrechnung & Guthaben</p><h2 id="billing-title">Abrechnung <span>{items.length}</span></h2><p>Private Guthaben werden mit bestätigten Anwesenheiten verrechnet. Bei Kostenträgern sind nur bestätigte Lektionen abrechnungsbereit.</p><div className="billing-summary"><span>{summary.lowCredit} Guthaben niedrig</span><span>{summary.authorityLessons} Lektionen Kostenträger</span><span>{summary.privateItems} private Teilnahmen</span>{summary.overdue > 0 ? <span>{summary.overdue} überfällig</span> : null}</div></div>
     {error ? <div className="planner-state" role="alert"><span>{error}</span><button className="quiet-button" onClick={() => void load()} type="button">Erneut versuchen</button></div> : null}
-    {isLoading ? <p className="planner-state">Abrechnung wird geladen …</p> : <div className="billing-list">{items.length === 0 ? <p className="planner-state">Noch keine aktiven Kursteilnahmen vorhanden.</p> : items.map((item) => <article className={item.lowCredit ? "is-low-credit" : ""} key={item.enrollment_id}><div><span>{item.billing_type === "private" ? "Privat" : "Kostenträger"}</span><h3>{item.participant_name}</h3><p>{item.course_code}</p></div>{item.billing_type === "private" ? <div><strong>{item.remainingLessons ?? 0} Lektionen</strong><p>{item.consumedLessons} von {item.credit_lessons ?? 0} bezogen</p></div> : <div><strong>{item.billableConfirmedLessons} Lektionen</strong><p>bestätigt & abrechnungsbereit</p></div>}</article>)}</div>}
+    {isLoading ? <p className="planner-state">Abrechnung wird geladen …</p> : <div className="billing-list">{items.length === 0 ? <p className="planner-state">Noch keine aktiven Kursteilnahmen vorhanden.</p> : items.map((item) => <article className={item.lowCredit ? "is-low-credit" : ""} key={item.enrollment_id}><div><span>{item.billing_type === "private" ? "Privat" : "Kostenträger"}</span><h3>{item.participant_name}</h3><p>{item.course_code}{item.payment_status ? ` · ${item.payment_status}` : ""}</p></div>{item.billing_type === "private" ? <div><strong>{item.remainingLessons ?? 0} Lektionen</strong><p>{item.consumedLessons} von {item.credit_lessons ?? 0} bezogen</p>{item.credit_lessons !== null && item.remainingLessons === 0 && item.consumedLessons > 0 ? <p className="billing-alert">Neue Rechnung erforderlich</p> : null}</div> : <div><strong>{item.billableConfirmedLessons} Lektionen</strong><p>bestätigt & abrechnungsbereit</p></div>}</article>)}</div>}
   </section>;
 }

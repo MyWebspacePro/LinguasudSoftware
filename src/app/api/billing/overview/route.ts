@@ -11,6 +11,7 @@ export async function GET() {
         enrollments.id AS enrollment_id,
         enrollments.billing_type,
         enrollments.credit_lessons,
+        enrollments.payment_status,
         participants.name AS participant_name,
         courses.code AS course_code,
         count(attendance.id) FILTER (
