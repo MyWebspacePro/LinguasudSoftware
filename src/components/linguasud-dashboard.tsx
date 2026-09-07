@@ -210,12 +210,20 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
       ]);
       if (signal?.aborted) return;
 
-      const roomPlan = toPlannerRooms(roomsPayload.rooms);
-      const fetchedLessons = toPlannerLessons(lessonsPayload.lessons);
+      const apiRooms = Array.isArray(roomsPayload.rooms) ? roomsPayload.rooms : [];
+      const apiLessons = Array.isArray(lessonsPayload.lessons) ? lessonsPayload.lessons : [];
+      // On a new installation the room seed exists before the first course is
+      // created. Keep the usable demo occupancy visible instead of replacing it
+      // with an empty grid after the initial render.
+      const hasLiveLessons = apiLessons.length > 0;
+      const roomPlan = hasLiveLessons ? toPlannerRooms(apiRooms) : { rooms: demoRooms, locations: demoLocations };
+      const fetchedLessons = hasLiveLessons ? toPlannerLessons(apiLessons) : demoLessons.filter((lesson) => lesson.date === activeDay);
       setPlannerRooms(roomPlan.rooms);
       setPlannerLocations(roomPlan.locations);
       setLessons(fetchedLessons);
-      setNotice(fetchedLessons.length === 0 ? "Für diesen Tag sind keine Lektionen geplant." : `${fetchedLessons.length} Lektion${fetchedLessons.length === 1 ? "" : "en"} geplant.`);
+      setNotice(hasLiveLessons
+        ? `${fetchedLessons.length} Lektion${fetchedLessons.length === 1 ? "" : "en"} geplant.`
+        : "Demo-Raumplan angezeigt – konkrete Lektionen erscheinen nach der Kurserfassung.");
       setPlannerStatus("ready");
     } catch (error) {
       if (signal?.aborted) return;
@@ -329,7 +337,6 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
         </header>
 
         {activeRole !== "office" ? <RoleWorkspace role={activeRole} userName={user.name} onNotice={setNotice} /> : activeView === "dashboard" ? <>
-          <DashboardOverview />
           <section className="planner-panel" aria-labelledby="room-plan-title">
             <h2 className="sr-only" id="room-plan-title">Tägliches Raumraster</h2>
             <div className="planner-toolbar">
@@ -363,6 +370,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
               </div>
             </div>
           </section>
+          <DashboardOverview />
           {isAttendanceOpen ? <div className="dialog-backdrop" role="presentation"><div className="attendance-dialog attendance-dialog--wide"><button aria-label="Anwesenheiten schliessen" className="dialog-close" onClick={() => setIsAttendanceOpen(false)} type="button">×</button><OfficeAttendanceWorkspace onNotice={(message) => { setNotice(message); setIsAttendanceOpen(false); }} /></div></div> : null}
         </>
         : activeView === "teilnehmer" ? <PeopleWorkspace mode="participants" /> : activeView === "lehrpersonen" ? <PeopleWorkspace mode="teachers" /> : activeView === "kurse" ? <CourseWorkspace initiallyOpen={courseOpenRequest > 0} key={courseOpenRequest} /> : activeView === "raeume" ? <RoomsWorkspace /> : <BillingWorkspace />}

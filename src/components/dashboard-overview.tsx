@@ -95,11 +95,12 @@ export function DashboardOverview() {
     && summary.rooms === 0
     && summary.activeEnrollments === 0;
 
-  return <section className="management-preview" aria-labelledby="dashboard-overview-title">
-    <div className="preview-intro">
-      <p className="eyebrow">Administration</p>
-      <h2 id="dashboard-overview-title">Dashboard</h2>
-      <p>Der aktuelle Überblick wird direkt aus Kursen, Teilnehmern, Räumen und der Abrechnung geladen.</p>
+  return <section className="dashboard-overview" aria-labelledby="dashboard-overview-title">
+    <div className="dashboard-overview__head">
+      <div>
+        <p className="eyebrow">Übersicht</p>
+        <h2 id="dashboard-overview-title">Tagesstatus</h2>
+      </div>
       <button className="quiet-button" disabled={isLoading} onClick={() => void load()} type="button">
         {isLoading ? "Aktualisiert …" : "Aktualisieren"}
       </button>
@@ -109,11 +110,11 @@ export function DashboardOverview() {
     {isLoading && data === null ? <p className="planner-state" role="status">Dashboard wird geladen …</p> : null}
     {!isLoading && !error && isEmpty ? <p className="planner-state">Noch keine Verwaltungsdaten vorhanden. Lege zuerst Räume, Lehrpersonen, Kurse und Teilnehmer an.</p> : null}
     {data !== null ? <>
-      <div className="preview-grid" aria-label="Dashboard-Kennzahlen">
-        <article aria-label={`Laufende Kurse: ${summary.openCourses}`}><span>Laufende Kurse</span><h3>{summary.openCourses}</h3><p>Geplant, aktiv oder pausiert</p></article>
-        <article aria-label={`Teilnehmer: ${summary.participants}`}><span>Teilnehmer</span><h3>{summary.participants}</h3><p>Mit eigenem Teilnehmerzugang</p></article>
-        <article aria-label={`Aktive Räume: ${summary.rooms}`}><span>Aktive Räume</span><h3>{summary.rooms}</h3><p>Für die Planung verfügbar</p></article>
-        <article aria-label={`Guthaben niedrig: ${summary.lowCredit}`}><span>Guthaben niedrig</span><h3>{summary.lowCredit}</h3><p>Private Teilnahmen mit höchstens zwei Lektionen</p></article>
+      <div className="dashboard-kpi-strip" aria-label="Dashboard-Kennzahlen">
+        <article aria-label={`Laufende Kurse: ${summary.openCourses}`}><span>Laufende Kurse</span><strong>{summary.openCourses}</strong></article>
+        <article aria-label={`Teilnehmer: ${summary.participants}`}><span>Teilnehmer</span><strong>{summary.participants}</strong></article>
+        <article aria-label={`Aktive Räume: ${summary.rooms}`}><span>Aktive Räume</span><strong>{summary.rooms}</strong></article>
+        <article aria-label={`Guthaben niedrig: ${summary.lowCredit}`}><span>Guthaben niedrig</span><strong>{summary.lowCredit}</strong></article>
       </div>
       <div className="billing-summary" aria-label="Abrechnungsstatus">
         <span>{summary.activeEnrollments} aktive Teilnahmen</span>
