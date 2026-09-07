@@ -129,4 +129,27 @@ describe("PeopleWorkspace", () => {
     const updateCall = fetchMock.mock.calls.find(([url, init]) => url === "/api/participants/participant-1" && init?.method === "PATCH");
     expect(JSON.parse(String(updateCall?.[1]?.body))).toMatchObject({ password: "NeuesSicheresPasswort12" });
   });
+
+  it("lets the office deactivate a teacher while preserving their record", async () => {
+    const teacher = { id: "teacher-1", name: "Mia Muster", first_name: "Mia", last_name: "Muster", email: "mia@example.test", role: "teacher", active: true, teaching_levels: [{ language: "Deutsch", levels: ["A0"], fromLevel: "A0", toLevel: "A0" }] };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/teachers/teacher-1" && init?.method === "PATCH") return { ok: true, json: async () => ({ teacher }) };
+      if (url === "/api/teachers") return { ok: true, json: async () => ({ teachers: [teacher] }) };
+      if (url === "/api/courses") return { ok: true, json: async () => ({ courses: [] }) };
+      if (url === "/api/enrollments") return { ok: true, json: async () => ({ enrollments: [] }) };
+      return { ok: false, json: async () => ({ error: "Unbekannte Anfrage" }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PeopleWorkspace mode="teachers" />);
+
+    await screen.findByText("Mia Muster");
+    fireEvent.click(screen.getByRole("button", { name: "Stammdaten bearbeiten" }));
+    fireEvent.click(screen.getByLabelText("Für neue Planungen aktiv"));
+    fireEvent.click(screen.getByRole("button", { name: "Daten speichern" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/teachers/teacher-1", expect.objectContaining({ method: "PATCH" })));
+    const updateCall = fetchMock.mock.calls.find(([url, init]) => url === "/api/teachers/teacher-1" && init?.method === "PATCH");
+    expect(JSON.parse(String(updateCall?.[1]?.body))).toMatchObject({ active: false });
+  });
 });

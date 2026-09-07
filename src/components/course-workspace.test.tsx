@@ -124,4 +124,27 @@ describe("CourseWorkspace", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/enrollments/enrollment-1", expect.objectContaining({ method: "DELETE" })));
     expect(screen.getByText("Teilnahme beendet")).toBeInTheDocument();
   });
+
+  it("does not offer inactive teachers for new course planning", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/courses") return { ok: true, json: async () => ({ courses: [] }) };
+      if (url === "/api/teachers") return { ok: true, json: async () => ({ teachers: [
+        { id: "teacher-active", name: "Mia Aktiv", active: true, teaching_levels: [{ language: "Deutsch", levels: ["A1"] }] },
+        { id: "teacher-inactive", name: "Nora Inaktiv", active: false, teaching_levels: [{ language: "Deutsch", levels: ["A1"] }] },
+      ] }) };
+      if (url === "/api/rooms") return { ok: true, json: async () => ({ rooms: [] }) };
+      if (url === "/api/course-schedules") return { ok: true, json: async () => ({ schedules: [] }) };
+      if (url === "/api/enrollments") return { ok: true, json: async () => ({ enrollments: [] }) };
+      return { ok: false, json: async () => ({ error: "Unbekannte Anfrage" }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<CourseWorkspace />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Kurs anlegen/ }));
+    fireEvent.change(screen.getByLabelText("Sprache"), { target: { value: "Deutsch" } });
+
+    expect(screen.getByRole("option", { name: "Mia Aktiv" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Nora Inaktiv" })).not.toBeInTheDocument();
+  });
 });
