@@ -16,6 +16,7 @@ import { RoleWorkspace } from "@/components/role-workspaces";
 import { CourseWorkspace } from "@/components/course-workspace";
 import { PeopleWorkspace } from "@/components/people-workspace";
 import { BillingWorkspace } from "@/components/billing-workspace";
+import { RoomsWorkspace } from "@/components/rooms-workspace";
 
 const DAY_START = 6 * 60;
 const DAY_END = 22 * 60 + 30;
@@ -24,9 +25,11 @@ const SLOT_HEIGHT = 22;
 const BUFFER_MINUTES = 15;
 
 const navigation = [
-  ["raumplan", "Raumplan"],
+  ["dashboard", "Dashboard"],
+  ["teilnehmer", "Teilnehmer"],
+  ["lehrpersonen", "Lehrpersonen"],
   ["kurse", "Kurse"],
-  ["teilnehmende", "Teilnehmende"],
+  ["raeume", "Räume"],
   ["abrechnung", "Abrechnung"],
 ] as const;
 
@@ -156,7 +159,7 @@ function toPlannerLessons(apiLessons: ApiLesson[]): PlannerLesson[] {
 }
 
 export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "office" } }: { user?: DashboardUser }) {
-  const [activeView, setActiveView] = useState<View>("raumplan");
+  const [activeView, setActiveView] = useState<View>("dashboard");
   const [activeDay, setActiveDay] = useState(zurichDate);
   const activeRole = user.role;
   const [lessons, setLessons] = useState<PlannerLesson[]>(demoLessons);
@@ -174,8 +177,8 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
     [activeDay, lessons],
   );
   const selectedLesson = lessons.find((lesson) => lesson.id === selectedLessonId) ?? null;
-  const pageTitle = activeRole === "participant" ? "Mein Kurs" : activeRole === "teacher" ? "Mein Unterricht" : activeView === "raumplan" ? "Raumplan" : navigation.find(([view]) => view === activeView)?.[1];
-  const pageEyebrow = activeRole === "participant" ? "Teilnehmerportal" : activeRole === "teacher" ? "Lehrpersonenbereich" : activeView === "raumplan" ? "Tagesplanung" : "Verwaltung";
+  const pageTitle = activeRole === "participant" ? "Mein Kurs" : activeRole === "teacher" ? "Mein Unterricht" : navigation.find(([view]) => view === activeView)?.[1];
+  const pageEyebrow = activeRole === "participant" ? "Teilnehmerportal" : activeRole === "teacher" ? "Lehrpersonenbereich" : activeView === "dashboard" ? "Tagesplanung" : "Verwaltung";
   const slots = useMemo(
     () => Array.from({ length: (DAY_END - DAY_START) / SLOT_MINUTES }, (_, index) => DAY_START + index * SLOT_MINUTES),
     [],
@@ -299,7 +302,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <a className="brand" href="#raumplan" aria-label="Linguasud Verwaltung">
+        <a className="brand" href="#dashboard" aria-label="Linguasud Verwaltung">
           <span className="brand__mark">L</span>
           <span>Linguasud<small>Verwaltung</small></span>
         </a>
@@ -307,7 +310,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
           <p className="nav-label">Organisation</p>
           {navigation.map(([view, label]) => (
             <button className={`nav-item ${activeView === view ? "nav-item--active" : ""}`} key={view} onClick={() => { setCourseOpenRequest(0); setActiveView(view); }} type="button">
-              <span aria-hidden="true">{view === "raumplan" ? "▦" : view === "kurse" ? "◫" : view === "teilnehmende" ? "◉" : "⊞"}</span>{label}
+              <span aria-hidden="true">{view === "dashboard" ? "▦" : view === "teilnehmer" ? "◉" : view === "lehrpersonen" ? "♧" : view === "kurse" ? "◫" : view === "raeume" ? "▤" : "⊞"}</span>{label}
             </button>
           ))}
           <p className="nav-label nav-label--lower">Arbeitsbereich</p>
@@ -325,7 +328,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
           <div className="topbar__actions"><button className="quiet-button" type="button" onClick={() => setNotice("Keine neuen Benachrichtigungen.")}>⌁ <span>Benachrichtigungen</span></button>{activeRole === "office" ? <button className="primary-button" type="button" onClick={() => { setActiveView("kurse"); setCourseOpenRequest((current) => current + 1); }}>+ Neuer Kurs</button> : null}</div>
         </header>
 
-        {activeRole !== "office" ? <RoleWorkspace role={activeRole} userName={user.name} onNotice={setNotice} /> : activeView === "raumplan" ? (
+        {activeRole !== "office" ? <RoleWorkspace role={activeRole} userName={user.name} onNotice={setNotice} /> : activeView === "dashboard" ? (
           <section className="planner-panel" aria-labelledby="room-plan-title">
             <h2 className="sr-only" id="room-plan-title">Tägliches Raumraster</h2>
             <div className="planner-toolbar">
@@ -359,7 +362,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
               </div>
             </div>
           </section>
-        ) : activeView === "kurse" ? <CourseWorkspace initiallyOpen={courseOpenRequest > 0} key={courseOpenRequest} /> : activeView === "teilnehmende" ? <PeopleWorkspace /> : activeView === "abrechnung" ? <BillingWorkspace /> : <ManagementPreview view={activeView} onAction={setNotice} />}
+        ) : activeView === "teilnehmer" ? <PeopleWorkspace mode="participants" /> : activeView === "lehrpersonen" ? <PeopleWorkspace mode="teachers" /> : activeView === "kurse" ? <CourseWorkspace initiallyOpen={courseOpenRequest > 0} key={courseOpenRequest} /> : activeView === "raeume" ? <RoomsWorkspace /> : <BillingWorkspace />}
       </main>
 
       {selectedLesson ? <LessonDialog lesson={selectedLesson} rooms={plannerRooms} locations={plannerLocations} onClose={() => setSelectedLessonId(null)} onCancel={async () => {
@@ -376,15 +379,6 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
       }} /> : null}
     </div>
   );
-}
-
-function ManagementPreview({ view, onAction }: { view: Exclude<View, "raumplan">; onAction: (message: string) => void }) {
-  const content = {
-    kurse: { title: "Aktive Kurse", count: "24", copy: "Standardzeiten, Räume und Niveauverläufe werden zentral im Büro gepflegt.", cards: ["MARKELDEA201 · Deutsch A2", "SCHMIDDEB101 · Deutsch B1", "ROTHFRA101 · Französisch A1"] },
-    teilnehmende: { title: "Teilnehmende", count: "126", copy: "Aktive Teilnahmen, Guthaben und die nächste Lektion auf einen Blick.", cards: ["Lea Baumann · 8 Lektionen verfügbar", "Amir Hussein · Kostenträger: Kanton SH", "Mia Frei · Probelektion am Mittwoch"] },
-    abrechnung: { title: "Abrechnung", count: "12", copy: "Bestätigte Lektionen bilden die Grundlage für Guthaben und Sammelrechnungen.", cards: ["4 Guthaben unter 2 Lektionen", "7 Teilnahmen abrechnungsbereit", "1 Rechnung zur Prüfung"] },
-  }[view];
-  return <section className="management-preview"><div className="preview-intro"><p className="eyebrow">In Vorbereitung</p><h2>{content.title} <span>{content.count}</span></h2><p>{content.copy}</p></div><div className="preview-grid">{content.cards.map((card) => <article key={card}><span>Aktuell</span><h3>{card}</h3><button type="button" onClick={() => onAction(`${card}: Detailansicht wird im nächsten Schritt ergänzt.`)}>Details öffnen →</button></article>)}</div></section>;
 }
 
 function LessonDialog({ lesson, rooms, locations, onClose, onCancel }: { lesson: PlannerLesson; rooms: PlannerRoom[]; locations: Location[]; onClose: () => void; onCancel: () => void | Promise<void> }) {

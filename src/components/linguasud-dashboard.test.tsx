@@ -11,7 +11,7 @@ describe("LinguasudDashboard", () => {
   it("shows the daily room plan and lesson cards", () => {
     render(<LinguasudDashboard />);
 
-    expect(screen.getByRole("heading", { name: "Raumplan" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /MARKELDEA201/ })).toBeInTheDocument();
     expect(screen.getByText("Schaffhausen 1")).toBeInTheDocument();
     expect(screen.getByText("Winterthur")).toBeInTheDocument();
