@@ -16,6 +16,7 @@ import { RoomsWorkspace } from "@/components/rooms-workspace";
 import { DashboardOverview } from "@/components/dashboard-overview";
 import { OfficeAttendanceWorkspace } from "@/components/office-attendance-workspace";
 import { DashboardNotifications } from "@/components/dashboard-notifications";
+import { OfficeAccountsWorkspace } from "@/components/office-accounts-workspace";
 
 const DAY_START = 6 * 60;
 const DAY_END = 22 * 60 + 30;
@@ -54,7 +55,7 @@ type PlannerLesson = {
 };
 type PlannerRoom = Room;
 type PlannerTeacher = { id: string; name: string; active?: boolean; teaching_levels?: Array<{ language: string; levels: string[] }> };
-type DashboardUser = { name: string; role: UserRole };
+type DashboardUser = { id?: string; name: string; role: UserRole };
 
 type ApiRoom = {
   id: string;
@@ -204,6 +205,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
   const [courseOpenRequest, setCourseOpenRequest] = useState(0);
   const [focusCourseId, setFocusCourseId] = useState<string | null>(null);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
+  const [isOfficeAccountsOpen, setIsOfficeAccountsOpen] = useState(false);
   const [attendanceDate, setAttendanceDate] = useState<string | null>(null);
   const [notice, setNotice] = useState("Raumplan wird geladen.");
 
@@ -381,7 +383,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
       <main className="workspace">
         <header className="topbar">
           <div><p className="eyebrow">{pageEyebrow}</p><h1>{pageTitle}</h1></div>
-          <div className="topbar__actions"><button className="quiet-button" type="button" onClick={() => setNotice("Keine neuen Benachrichtigungen.")}>⌁ <span>Benachrichtigungen</span></button>{activeRole === "office" ? <button className="primary-button" type="button" onClick={() => { setActiveView("kurse"); setCourseOpenRequest((current) => current + 1); }}>+ Neuer Kurs</button> : null}</div>
+          <div className="topbar__actions">{activeRole === "office" ? <button className="quiet-button" onClick={() => setIsOfficeAccountsOpen(true)} type="button">Bürokonten</button> : null}<button className="quiet-button" type="button" onClick={() => setNotice("Keine neuen Benachrichtigungen.")}>⌁ <span>Benachrichtigungen</span></button>{activeRole === "office" ? <button className="primary-button" type="button" onClick={() => { setActiveView("kurse"); setCourseOpenRequest((current) => current + 1); }}>+ Neuer Kurs</button> : null}</div>
         </header>
 
         {activeRole !== "office" ? <RoleWorkspace role={activeRole} userName={user.name} onNotice={setNotice} /> : activeView === "dashboard" ? <>
@@ -437,6 +439,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
           setNotice(error instanceof Error ? error.message : "Lektion konnte nicht abgesagt werden.");
         }
       }} /> : null}
+      {isOfficeAccountsOpen ? <OfficeAccountsWorkspace currentUserId={user.id} onClose={() => setIsOfficeAccountsOpen(false)} /> : null}
     </div>
   );
 }

@@ -96,8 +96,9 @@ export async function GET() {
             ORDER BY courses.code
           `;
     return NextResponse.json({ enrollments });
-  } catch {
-    return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
+    return NextResponse.json({ error: "Teilnahmen konnten nicht geladen werden." }, { status: 500 });
   }
 }
 

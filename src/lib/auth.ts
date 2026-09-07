@@ -10,7 +10,7 @@ const SESSION_COOKIE = "linguasud_session";
 const SESSION_DAYS = 14;
 
 type Role = "office" | "teacher" | "participant";
-type SessionUser = { id: string; email: string; name: string; role: Role };
+type SessionUser = { id: string; email: string; name: string; role: Role; active: boolean };
 type SessionUserWithHash = SessionUser & { password_hash: string };
 
 function hashToken(token: string) {
@@ -20,7 +20,7 @@ function hashToken(token: string) {
 export async function signIn(email: string, password: string) {
   const sql = db();
   const [user] = await sql<SessionUserWithHash[]>`
-    SELECT id, email, name, role, password_hash FROM users WHERE email = ${email.toLowerCase()}
+    SELECT id, email, name, role, active, password_hash FROM users WHERE email = ${email.toLowerCase()} AND active = true
   `;
   if (!user || !verifyPassword(password, user.password_hash)) return null;
 
@@ -37,9 +37,9 @@ export async function currentUser(): Promise<SessionUser | null> {
   if (!token) return null;
   const sql = db();
   const [user] = await sql<SessionUser[]>`
-    SELECT users.id, users.email, users.name, users.role
+    SELECT users.id, users.email, users.name, users.role, users.active
     FROM sessions JOIN users ON users.id = sessions.user_id
-    WHERE sessions.token_hash = ${hashToken(token)} AND sessions.expires_at > now()
+    WHERE sessions.token_hash = ${hashToken(token)} AND sessions.expires_at > now() AND users.active = true
   `;
   return user ?? null;
 }
