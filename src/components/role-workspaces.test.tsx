@@ -74,4 +74,32 @@ describe("RoleWorkspace attendance", () => {
     expect(screen.getByRole("button", { name: "Anwesenheit bestätigen" })).toBeDisabled();
     expect(onNotice).not.toHaveBeenCalled();
   });
+
+  it("stores lesson documentation on the concrete lesson", async () => {
+    const lessonId = "8af5cb1e-13c4-4bbe-8e60-52f396e79cb9";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.startsWith("/api/lessons?date=")) return {
+        ok: true,
+        json: async () => ({ lessons: [{ id: lessonId, code: "MARKELDEA201", language: "Deutsch", level: "A2", starts_at: "2026-09-07T16:00:00.000Z", duration_minutes: 90, room_name: "A1", location_name: "Schaffhausen 1", status: "scheduled" }] }),
+      };
+      if (url === `/api/lessons/${lessonId}` && init?.method === "PATCH") return { ok: true, json: async () => ({ lesson: { id: lessonId } }) };
+      return { ok: false, json: async () => ({ error: "Unbekannte Anfrage" }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const onNotice = vi.fn();
+
+    render(<RoleWorkspace role="teacher" onNotice={onNotice} />);
+    await screen.findByText(/MARKELDEA201/);
+    fireEvent.click(screen.getByRole("button", { name: /Lektionsdokumentation öffnen/ }));
+    fireEvent.change(screen.getByLabelText("Unterrichtsinhalt"), { target: { value: "Dialoge zum Arztbesuch geübt." } });
+    fireEvent.change(screen.getByLabelText("Hausaufgaben"), { target: { value: "Arbeitsblatt 3 fertigstellen." } });
+    fireEvent.click(screen.getByRole("button", { name: "Dokumentation speichern" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(`/api/lessons/${lessonId}`, expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify({ actualDurationMinutes: 90, lessonContent: "Dialoge zum Arztbesuch geübt.", homework: "Arbeitsblatt 3 fertigstellen.", teacherNotes: null }),
+    })));
+    expect(onNotice).toHaveBeenCalledWith("MARKELDEA201: Lektionsdokumentation gespeichert.");
+  });
 });

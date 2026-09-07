@@ -8,7 +8,7 @@ Die Administration verwendet die UUID des jeweiligen Datensatzes als stabile Ref
 - `teacher_profiles.user_id` und `participant_profiles.user_id` erweitern die jeweilige Identität um Stammdaten.
 - `courses.teacher_id` verweist auf die Lehrperson und `courses.standard_room_id` auf den Standardraum.
 - `course_schedules.course_id` beschreibt die wöchentlichen Termine eines Kurses.
-- `lessons.course_id`, `lessons.room_id` und `lessons.teacher_id` verknüpfen jede konkrete Lektion mit Kurs, Raum und (gegebenenfalls abweichender) Lehrperson.
+- `lessons.course_id`, `lessons.room_id` und `lessons.teacher_id` verknüpfen jede konkrete Lektion mit Kurs, Raum und (gegebenenfalls abweichender) Lehrperson. Die konkrete Lektion trägt zudem tatsächliche Dauer, Unterrichtsinhalt, Hausaufgaben und interne Lehrpersonennotizen.
 - `enrollments.course_id` und `enrollments.participant_id` verknüpfen Kurse und Teilnehmende.
 - `attendance.lesson_id` und `attendance.enrollment_id` verknüpfen Anwesenheiten mit genau einer Lektion und Teilnahme.
 - `enrollment_pauses.enrollment_id`, `person_notes.user_id` und `change_history.actor_id` bewahren Pausen, Notizen und die Änderungshistorie.
@@ -30,4 +30,4 @@ Die Listen- und Detailrouten liefern neben den flachen IDs auch strukturierte Re
 
 Stammdatenänderungen erfolgen über `PATCH /api/rooms/:roomId`, `PATCH /api/locations/:locationId` und `PATCH /api/courses/:courseId` (Kursstatus, Kurskennung und Niveau). Anlage, Änderungen, Verschiebungen, Abmeldungen und Statuswechsel werden in `change_history` protokolliert. Die Raumverwaltung kann mit `GET /api/rooms?includeInactive=true` auch deaktivierte Räume für eine Reaktivierung laden; der Planer verwendet weiterhin nur aktive Räume.
 
-Die Migrationen `013_person_identity_and_notes.sql`, `014_cross_reference_indexes.sql` und `015_identity_value_constraints.sql` werden beim Start des Containers automatisch angewendet.
+Die Migrationen `013_person_identity_and_notes.sql` bis `016_lesson_documentation.sql` werden beim Start des Containers automatisch angewendet.

@@ -14,6 +14,12 @@ const cancelLessonSchema = z.object({
   status: z.literal("cancelled"),
   cancellationReason: z.string().trim().min(2).max(500).optional(),
 });
+const documentLessonSchema = z.object({
+  actualDurationMinutes: z.number().int().min(1).max(360).nullable().optional(),
+  lessonContent: z.string().trim().max(12_000).nullable().optional(),
+  homework: z.string().trim().max(8_000).nullable().optional(),
+  teacherNotes: z.string().trim().max(8_000).nullable().optional(),
+}).refine((value) => Object.keys(value).length > 0, { message: "Mindestens ein Lektionsfeld ist erforderlich." });
 
 function qualificationLevel(level: string) {
   return level.slice(0, 2).replace("+", "");
@@ -39,10 +45,32 @@ export async function GET(_request: Request, context: { params: Promise<{ lesson
 
 export async function PATCH(request: Request, context: { params: Promise<{ lessonId: string }> }) {
   try {
-    const user = await requireRole("office");
+    const user = await requireRole("office", "teacher");
     const { lessonId } = await context.params;
-    const input = z.union([moveLessonSchema, cancelLessonSchema]).parse(await request.json());
+    const rawInput: unknown = await request.json();
     const sql = db();
+    const documentationResult = documentLessonSchema.safeParse(rawInput);
+    if (documentationResult.success) {
+      const input = documentationResult.data;
+      const [existing] = user.role === "office"
+        ? await sql`SELECT id, actual_duration_minutes, lesson_content, homework, teacher_notes FROM lessons WHERE id = ${lessonId} AND status <> 'cancelled'`
+        : await sql`SELECT id, actual_duration_minutes, lesson_content, homework, teacher_notes FROM lessons WHERE id = ${lessonId} AND teacher_id = ${user.id} AND status <> 'cancelled'`;
+      if (!existing) return NextResponse.json({ error: "Lektion wurde nicht gefunden." }, { status: 404 });
+      const has = (key: keyof typeof input) => Object.prototype.hasOwnProperty.call(input, key);
+      const [updated] = await sql`
+        UPDATE lessons SET
+          actual_duration_minutes = CASE WHEN ${has("actualDurationMinutes")} THEN ${input.actualDurationMinutes ?? null} ELSE actual_duration_minutes END,
+          lesson_content = CASE WHEN ${has("lessonContent")} THEN ${input.lessonContent ?? null} ELSE lesson_content END,
+          homework = CASE WHEN ${has("homework")} THEN ${input.homework ?? null} ELSE homework END,
+          teacher_notes = CASE WHEN ${has("teacherNotes")} THEN ${input.teacherNotes ?? null} ELSE teacher_notes END
+        WHERE id = ${lessonId}
+        RETURNING *
+      `;
+      await sql`INSERT INTO change_history (id, entity_type, entity_id, event_type, summary, before_data, after_data, actor_id) VALUES (${randomUUID()}, 'lesson', ${lessonId}, 'documentation_updated', 'Lektionsdokumentation aktualisiert', ${JSON.stringify(existing)}, ${JSON.stringify(input)}, ${user.id})`;
+      return NextResponse.json({ lesson: updated });
+    }
+    if (user.role !== "office") return NextResponse.json({ error: "Nur das Büro darf Lektionen verschieben oder absagen." }, { status: 403 });
+    const input = z.union([moveLessonSchema, cancelLessonSchema]).parse(rawInput);
     const [lesson] = await sql<{ id: string; course_id: string; room_id: string | null; starts_at: string; teacher_id: string; duration_minutes: number; language: string; level: string; standard_location_id: string | null; standard_location_name: string | null }[]>`SELECT l.id, l.course_id, l.room_id, l.starts_at, l.teacher_id, l.duration_minutes, c.language, c.level, standard_location.id AS standard_location_id, standard_location.name AS standard_location_name FROM lessons l JOIN courses c ON c.id = l.course_id LEFT JOIN rooms standard_room ON standard_room.id = c.standard_room_id LEFT JOIN locations standard_location ON standard_location.id = standard_room.location_id WHERE l.id = ${lessonId} AND l.status = 'scheduled'`;
     if (!lesson) return NextResponse.json({ error: "Lektion wurde nicht gefunden." }, { status: 404 });
     if ("status" in input) {
