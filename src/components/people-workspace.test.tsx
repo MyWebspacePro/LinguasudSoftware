@@ -106,4 +106,27 @@ describe("PeopleWorkspace", () => {
     const teacherCall = fetchMock.mock.calls.find(([url, init]) => url === "/api/teachers" && init?.method === "POST");
     expect(JSON.parse(String(teacherCall?.[1]?.body))).toMatchObject({ firstName: "Mia", lastName: "Muster", teachingLevels: [{ language: "Deutsch", fromLevel: "A1", toLevel: "C1" }, { language: "Englisch", fromLevel: "B1", toLevel: "B2" }] });
   });
+
+  it("lets the office set a replacement password from a person's master data", async () => {
+    const participant = { id: "participant-1", name: "Lea Baumann", first_name: "Lea", last_name: "Baumann", email: "lea@example.test", role: "participant" };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/participants/participant-1" && init?.method === "PATCH") return { ok: true, json: async () => ({ participant }) };
+      if (url === "/api/participants") return { ok: true, json: async () => ({ participants: [participant] }) };
+      if (url === "/api/courses") return { ok: true, json: async () => ({ courses: [] }) };
+      if (url === "/api/enrollments") return { ok: true, json: async () => ({ enrollments: [] }) };
+      return { ok: false, json: async () => ({ error: "Unbekannte Anfrage" }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PeopleWorkspace mode="participants" />);
+
+    await screen.findByText("Lea Baumann");
+    fireEvent.click(screen.getByRole("button", { name: "Stammdaten bearbeiten" }));
+    fireEvent.change(screen.getByLabelText("Neues Passwort (optional)"), { target: { value: "NeuesSicheresPasswort12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Daten speichern" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/participants/participant-1", expect.objectContaining({ method: "PATCH" })));
+    const updateCall = fetchMock.mock.calls.find(([url, init]) => url === "/api/participants/participant-1" && init?.method === "PATCH");
+    expect(JSON.parse(String(updateCall?.[1]?.body))).toMatchObject({ password: "NeuesSicheresPasswort12" });
+  });
 });

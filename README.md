@@ -1,6 +1,6 @@
 # Linguasud Software
 
-Solides Fundament für eine moderne Webanwendung mit Next.js, React und TypeScript.
+Verwaltungssoftware für eine Sprachschule: Büroverwaltung, Teilnehmende, Lehrpersonen, Kurse, Räume, Lektionsplanung, Anwesenheit und Abrechnungsvorbereitung. Die Anwendung verwendet ausschliesslich PostgreSQL; es gibt keinen Demo-Daten-Fallback.
 
 ## Voraussetzungen
 
@@ -46,3 +46,18 @@ Das relationale Datenmodell und die verfügbaren Querverweise zwischen Kursen, R
 ## Umgebungsvariablen
 
 Neue Variablen werden in `.env.example` dokumentiert und in `src/lib/env.ts` validiert. Geheimnisse gehören ausschließlich in `.env.local` und werden nicht eingecheckt.
+
+## Deployment mit Coolify
+
+Die bestehende PostgreSQL-Datenbank in Coolify bleibt erhalten. Beim Start führt der Container alle noch nicht angewendeten Migrationen aus und legt das erste Bürokonto nur dann an, wenn dessen E-Mail-Adresse noch nicht existiert.
+
+In Coolify sind für den App-Service diese Variablen zu setzen:
+
+```text
+DATABASE_URL=<interne PostgreSQL-Verbindungs-URL aus Coolify>
+SESSION_SECRET=<langer zufälliger Geheimwert>
+BOOTSTRAP_ADMIN_EMAIL=<E-Mail für das erste Bürokonto>
+BOOTSTRAP_ADMIN_PASSWORD=<mindestens 12 Zeichen>
+```
+
+Nach dem Deployment bestätigt `https://linguasudsoftware.aiconso.eu/api/health` die Bereitschaft nur dann mit `{ "status": "ok" }`, wenn die App PostgreSQL erreicht. Ein anderer Status weist auf eine fehlende oder fehlerhafte Datenbankverbindung hin.
