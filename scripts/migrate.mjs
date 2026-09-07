@@ -21,13 +21,13 @@ try {
     });
     console.log(`Applied ${name}.`);
   }
-  const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
-  const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
-  if (!email || !password || password.length < 12) {
-    throw new Error("BOOTSTRAP_ADMIN_EMAIL and a password with at least 12 characters are required.");
-  }
-  const [existing] = await sql`SELECT id FROM users WHERE email = ${email}`;
-  if (!existing) {
+  const [officeAccount] = await sql`SELECT id FROM users WHERE role = 'office' LIMIT 1`;
+  if (!officeAccount) {
+    const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
+    const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+    if (!email || !password || password.length < 12) {
+      throw new Error("BOOTSTRAP_ADMIN_EMAIL and a password with at least 12 characters are required for an empty database.");
+    }
     const salt = randomBytes(16).toString("hex");
     const passwordHash = `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
     await sql`INSERT INTO users (id, email, name, role, password_hash) VALUES (${randomUUID()}, ${email}, 'Büro', 'office', ${passwordHash})`;
