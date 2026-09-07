@@ -13,6 +13,19 @@ const createCourseSchema = z.object({
   teacherId: z.uuid(),
   standardRoomId: z.uuid().nullable(),
   durationMinutes: z.number().int().min(15).max(360).multipleOf(15),
+  schedules: z.array(z.object({
+    weekday: z.number().int().min(0).max(6),
+    startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+    durationMinutes: z.number().int().min(15).max(360).multipleOf(15),
+  })).min(1).max(7).superRefine((schedules, context) => {
+    const weekdays = new Set<number>();
+    schedules.forEach((schedule, index) => {
+      if (weekdays.has(schedule.weekday)) {
+        context.addIssue({ code: "custom", message: "Ein Wochentag darf nur einmal angelegt werden.", path: [index, "weekday"] });
+      }
+      weekdays.add(schedule.weekday);
+    });
+  }),
 });
 
 export async function GET() {
@@ -31,11 +44,21 @@ export async function POST(request: Request) {
   try {
     await requireRole("office");
     const payload = createCourseSchema.parse(await request.json());
-    const [course] = await db()`
-      INSERT INTO courses (id, code, language, level, teacher_id, standard_room_id, duration_minutes, status)
-      VALUES (${randomUUID()}, ${payload.code}, ${payload.language}, ${payload.level}, ${payload.teacherId}, ${payload.standardRoomId}, ${payload.durationMinutes}, 'planned')
-      RETURNING *
-    `;
+    const sql = db();
+    const course = await sql.begin(async (transaction) => {
+      const [createdCourse] = await transaction`
+        INSERT INTO courses (id, code, language, level, teacher_id, standard_room_id, duration_minutes, status)
+        VALUES (${randomUUID()}, ${payload.code}, ${payload.language}, ${payload.level}, ${payload.teacherId}, ${payload.standardRoomId}, ${payload.durationMinutes}, 'planned')
+        RETURNING *
+      `;
+      for (const schedule of payload.schedules) {
+        await transaction`
+          INSERT INTO course_schedules (id, course_id, weekday, start_time, duration_minutes)
+          VALUES (${randomUUID()}, ${createdCourse.id}, ${schedule.weekday}, ${schedule.startTime}, ${schedule.durationMinutes})
+        `;
+      }
+      return createdCourse;
+    });
     return NextResponse.json({ course }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Ungültige Kursdaten." }, { status: 400 });

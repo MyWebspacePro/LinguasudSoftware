@@ -420,6 +420,19 @@ button {
 .preview-grid article > span { color: var(--teal); font-size: 0.67rem; font-weight: 800; text-transform: uppercase; }
 .preview-grid h3 { margin: 42px 0 22px; font-size: 1rem; line-height: 1.28; }
 .preview-grid button { padding: 0; border: 0; background: transparent; color: var(--teal); cursor: pointer; font-size: 0.78rem; font-weight: 800; }
+.preview-intro .primary-button { margin-top: 12px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; margin-top: 22px; }
+.form-grid label { display: grid; gap: 5px; color: var(--ink-soft); font-size: 0.73rem; font-weight: 750; }
+.form-grid input, .form-grid select { width: 100%; padding: 9px; border: 1px solid var(--border); border-radius: 6px; background: white; color: var(--ink); font: inherit; font-size: 0.82rem; }
+.course-schedule-summary { margin-top: 15px !important; color: var(--ink-soft); font-size: 0.74rem; line-height: 1.5; }
+.weekly-schedule { margin: 20px 0 0; padding: 14px; border: 1px solid var(--border); border-radius: 8px; }
+.weekly-schedule legend { padding: 0 5px; color: var(--ink); font-size: 0.8rem; font-weight: 800; }
+.weekly-schedule > p { margin: 0 0 12px; color: var(--ink-soft); font-size: 0.75rem; line-height: 1.45; }
+.weekday-buttons { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.weekday-buttons button { min-height: 32px; border: 1px solid var(--border); border-radius: 6px; background: white; color: var(--ink-soft); cursor: pointer; font-size: 0.7rem; font-weight: 800; }
+.weekday-buttons button.is-selected, .weekday-buttons button[aria-pressed="true"] { border-color: var(--teal); background: var(--teal); color: white; }
+.weekly-time { display: flex !important; align-items: center; justify-content: space-between; margin-top: 10px; color: var(--ink) !important; }
+.weekly-time input { width: 130px !important; }
 
 .dialog-backdrop { display: grid; position: fixed; z-index: 10; inset: 0; place-items: center; padding: 18px; background: rgba(14, 35, 32, 0.42); }
 .lesson-dialog { position: relative; width: min(100%, 500px); padding: 30px; border-radius: 15px; background: white; box-shadow: 0 24px 60px rgba(12, 30, 27, 0.28); }
@@ -488,6 +501,7 @@ button {
   .preview-grid { grid-template-columns: 1fr; }
   .lesson-dialog { padding: 24px 20px; }
   .lesson-dialog dl { grid-template-columns: 1fr; gap: 12px; }
+  .form-grid { grid-template-columns: 1fr; }
   .teacher-lesson, .next-lesson-card { align-items: flex-start; flex-direction: column; }
   .teacher-grid, .participant-grid { grid-template-columns: 1fr; }
 }

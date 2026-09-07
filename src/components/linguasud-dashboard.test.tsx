@@ -31,10 +31,18 @@ describe("LinguasudDashboard", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/lessons/lesson-markel-a2", expect.objectContaining({ method: "PATCH" })));
   });
 
-  it("provides the courses workspace", () => {
+  it("provides the courses workspace", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/courses") return { ok: true, json: async () => ({ courses: [] }) };
+      if (url === "/api/users?role=teacher") return { ok: true, json: async () => ({ users: [] }) };
+      if (url === "/api/rooms") return { ok: true, json: async () => ({ rooms: [] }) };
+      if (url === "/api/course-schedules") return { ok: true, json: async () => ({ schedules: [] }) };
+      return { ok: false, json: async () => ({ error: "Nicht angemeldet." }) };
+    }));
     render(<LinguasudDashboard />);
 
     fireEvent.click(screen.getByRole("button", { name: "Kurse" }));
-    expect(screen.getByRole("heading", { name: /Aktive Kurse/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: /Kurse/ })).toBeInTheDocument();
   });
 });

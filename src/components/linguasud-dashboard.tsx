@@ -14,6 +14,7 @@ import {
   type UserRole,
 } from "@/lib/linguasud-demo";
 import { RoleWorkspace } from "@/components/role-workspaces";
+import { CourseWorkspace } from "@/components/course-workspace";
 
 const DAY_START = 6 * 60;
 const DAY_END = 22 * 60 + 30;
@@ -145,6 +146,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
   const [plannerError, setPlannerError] = useState<string | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [lastMove, setLastMove] = useState<Move | null>(null);
+  const [courseOpenRequest, setCourseOpenRequest] = useState(0);
   const [notice, setNotice] = useState("Raumplan wird geladen.");
 
   const lessonsForDay = useMemo(
@@ -296,7 +298,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
       <main className="workspace">
         <header className="topbar">
           <div><p className="eyebrow">{pageEyebrow}</p><h1>{pageTitle}</h1></div>
-          <div className="topbar__actions"><button className="quiet-button" type="button" onClick={() => setNotice("Keine neuen Benachrichtigungen.")}>⌁ <span>Benachrichtigungen</span></button>{activeRole === "office" ? <button className="primary-button" type="button" onClick={() => setNotice("Neue Einträge werden im nächsten Umsetzungsschritt über ein Formular angelegt.")}>+ Neuer Kurs</button> : null}</div>
+          <div className="topbar__actions"><button className="quiet-button" type="button" onClick={() => setNotice("Keine neuen Benachrichtigungen.")}>⌁ <span>Benachrichtigungen</span></button>{activeRole === "office" ? <button className="primary-button" type="button" onClick={() => { setActiveView("kurse"); setCourseOpenRequest((current) => current + 1); }}>+ Neuer Kurs</button> : null}</div>
         </header>
 
         {activeRole !== "office" ? <RoleWorkspace role={activeRole} userName={user.name} onNotice={setNotice} /> : activeView === "raumplan" ? (
@@ -330,7 +332,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
               </div>
             </div>
           </section>
-        ) : <ManagementPreview view={activeView} onAction={setNotice} />}
+        ) : activeView === "kurse" ? <CourseWorkspace initiallyOpen={courseOpenRequest > 0} key={courseOpenRequest} /> : <ManagementPreview view={activeView} onAction={setNotice} />}
       </main>
 
       {selectedLesson ? <LessonDialog lesson={selectedLesson} rooms={plannerRooms} locations={plannerLocations} onClose={() => setSelectedLessonId(null)} onCancel={async () => {
