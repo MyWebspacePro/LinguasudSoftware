@@ -18,8 +18,8 @@ export async function GET(request: Request) {
     await requireRole("office");
     const role = new URL(request.url).searchParams.get("role");
     const users = role && ["office", "teacher", "participant"].includes(role)
-      ? await db()`SELECT id, name, email, role, active, created_at FROM users WHERE role = ${role} ORDER BY active DESC, name`
-      : await db()`SELECT id, name, email, role, active, created_at FROM users ORDER BY role, active DESC, name`;
+      ? await db()`SELECT id, name, email, role, true AS active, created_at FROM users WHERE role = ${role} ORDER BY name`
+      : await db()`SELECT id, name, email, role, true AS active, created_at FROM users ORDER BY role, name`;
     return NextResponse.json({ users });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") return NextResponse.json({ error: "Nicht berechtigt." }, { status: 403 });
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     const [user] = await db()`
       INSERT INTO users (id, name, email, role, password_hash)
       VALUES (${randomUUID()}, ${input.name}, ${input.email}, ${input.role}, ${hashPassword(input.password)})
-      RETURNING id, name, email, role, active, created_at
+      RETURNING id, name, email, role, true AS active, created_at
     `;
     return NextResponse.json({ user }, { status: 201 });
   } catch (error) {
