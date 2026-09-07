@@ -53,11 +53,11 @@ async function attendanceUser(): Promise<AuthorizedUser | null> {
 async function lessonForUser(lessonId: string, user: AuthorizedUser) {
   const sql = db();
   const [lesson] = user.role === "office"
-    ? await sql<{ id: string; course_id: string }[]>`
-        SELECT id, course_id FROM lessons WHERE id = ${lessonId}
+    ? await sql<{ id: string; course_id: string; status: string }[]>`
+        SELECT id, course_id, status FROM lessons WHERE id = ${lessonId} AND status <> 'cancelled'
       `
-    : await sql<{ id: string; course_id: string }[]>`
-        SELECT id, course_id FROM lessons WHERE id = ${lessonId} AND teacher_id = ${user.id}
+    : await sql<{ id: string; course_id: string; status: string }[]>`
+        SELECT id, course_id, status FROM lessons WHERE id = ${lessonId} AND teacher_id = ${user.id} AND status <> 'cancelled'
       `;
   return lesson ?? null;
 }
@@ -144,6 +144,20 @@ async function upsertAttendance(request: Request) {
           RETURNING *
         `;
         saved.push(record);
+      }
+      const [completedLesson] = await transaction<{ id: string }[]>`
+        UPDATE lessons
+        SET status = 'completed'
+        WHERE id = ${lesson.id}
+          AND status = 'scheduled'
+          AND starts_at <= now()
+        RETURNING id
+      `;
+      if (completedLesson) {
+        await transaction`
+          INSERT INTO change_history (id, entity_type, entity_id, event_type, summary, after_data, actor_id)
+          VALUES (${randomUUID()}, 'lesson', ${lesson.id}, 'completed', 'Anwesenheit bestätigt und Lektion abgeschlossen', ${JSON.stringify({ status: 'completed' })}, ${user.id})
+        `;
       }
       return saved;
     });

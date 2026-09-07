@@ -24,9 +24,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requireRole("office");
+    const actor = await requireRole("office");
     const input = createLocationSchema.parse(await request.json());
-    const [location] = await db()`INSERT INTO locations (id, name, address, sort_order) VALUES (${randomUUID()}, ${input.name}, ${input.address}, ${input.sortOrder}) RETURNING id, name, address, sort_order`;
+    const sql = db();
+    const [location] = await sql`INSERT INTO locations (id, name, address, sort_order) VALUES (${randomUUID()}, ${input.name}, ${input.address}, ${input.sortOrder}) RETURNING id, name, address, sort_order`;
+    await sql`INSERT INTO change_history (id, entity_type, entity_id, event_type, summary, after_data, actor_id) VALUES (${randomUUID()}, 'location', ${location.id}, 'created', 'Standort angelegt', ${JSON.stringify(location)}, ${actor.id})`;
     return NextResponse.json({ location }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Ungültige Standortdaten." }, { status: 400 });

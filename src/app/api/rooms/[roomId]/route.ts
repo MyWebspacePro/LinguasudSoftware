@@ -1,7 +1,16 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/database";
+
+const updateRoomSchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  capacity: z.number().int().min(1).max(200).optional(),
+  locationId: z.uuid().optional(),
+  active: z.boolean().optional(),
+}).refine((value) => Object.keys(value).length > 0);
 
 /** Return one room aggregate with its location, standard-course and lesson references. */
 export async function GET(_request: Request, context: { params: Promise<{ roomId: string }> }) {
@@ -19,5 +28,45 @@ export async function GET(_request: Request, context: { params: Promise<{ roomId
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") return NextResponse.json({ error: "Nicht berechtigt." }, { status: 403 });
     return NextResponse.json({ error: "Raum konnte nicht geladen werden." }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request, context: { params: Promise<{ roomId: string }> }) {
+  try {
+    const actor = await requireRole("office");
+    const { roomId } = await context.params;
+    const input = updateRoomSchema.parse(await request.json());
+    const sql = db();
+    const [existing] = await sql`SELECT * FROM rooms WHERE id = ${roomId}`;
+    if (!existing) return NextResponse.json({ error: "Raum wurde nicht gefunden." }, { status: 404 });
+    if (input.locationId) {
+      const [location] = await sql`SELECT id FROM locations WHERE id = ${input.locationId}`;
+      if (!location) return NextResponse.json({ error: "Standort wurde nicht gefunden." }, { status: 404 });
+    }
+    if (input.capacity !== undefined) {
+      const [usage] = await sql<{ count: string }[]>`SELECT count(*) FROM enrollments e JOIN courses c ON c.id = e.course_id WHERE e.active = true AND c.standard_room_id = ${roomId}`;
+      if (Number(usage?.count ?? 0) > input.capacity) return NextResponse.json({ error: "Die neue Kapazität liegt unter der aktuellen Kursbelegung." }, { status: 409 });
+    }
+    if (input.active === false) {
+      const [scheduled] = await sql<{ count: string }[]>`SELECT count(*) FROM lessons WHERE room_id = ${roomId} AND status = 'scheduled' AND starts_at >= now()`;
+      if (Number(scheduled?.count ?? 0) > 0) return NextResponse.json({ error: "Der Raum kann nicht deaktiviert werden, solange zukünftige Lektionen zugewiesen sind." }, { status: 409 });
+    }
+    const has = (key: keyof typeof input) => Object.prototype.hasOwnProperty.call(input, key);
+    const [room] = await sql`
+      UPDATE rooms SET
+        name = CASE WHEN ${has("name")} THEN ${input.name ?? null} ELSE name END,
+        capacity = CASE WHEN ${has("capacity")} THEN ${input.capacity ?? null} ELSE capacity END,
+        location_id = CASE WHEN ${has("locationId")} THEN ${input.locationId ?? null} ELSE location_id END,
+        active = CASE WHEN ${has("active")} THEN ${input.active ?? null} ELSE active END
+      WHERE id = ${roomId}
+      RETURNING *
+    `;
+    await sql`INSERT INTO change_history (id, entity_type, entity_id, event_type, summary, before_data, after_data, actor_id) VALUES (${randomUUID()}, 'room', ${roomId}, 'updated', 'Raumdaten geändert', ${JSON.stringify(existing)}, ${JSON.stringify(room)}, ${actor.id})`;
+    return NextResponse.json({ room });
+  } catch (error) {
+    if (error instanceof z.ZodError) return NextResponse.json({ error: "Ungültige Raumdaten." }, { status: 400 });
+    if (error instanceof Error && error.message === "UNAUTHORIZED") return NextResponse.json({ error: "Nicht berechtigt." }, { status: 403 });
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") return NextResponse.json({ error: "Dieser Raum existiert bereits an diesem Standort." }, { status: 409 });
+    return NextResponse.json({ error: "Raum konnte nicht geändert werden." }, { status: 500 });
   }
 }

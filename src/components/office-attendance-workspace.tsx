@@ -74,10 +74,10 @@ export function OfficeAttendanceWorkspace({ onNotice }: OfficeAttendanceWorkspac
       const loadedLessons = typeof payload === "object" && payload !== null && "lessons" in payload && Array.isArray(payload.lessons)
         ? payload.lessons as Lesson[]
         : [];
-      const scheduledLessons = loadedLessons.filter((lesson) => lesson.status === "scheduled");
+      const attendanceLessons = loadedLessons.filter((lesson) => lesson.status !== "cancelled");
       if (!signal?.aborted) {
-        setLessons(scheduledLessons);
-        setSelectedLessonId(scheduledLessons[0]?.id ?? "");
+        setLessons(attendanceLessons);
+        setSelectedLessonId(attendanceLessons[0]?.id ?? "");
       }
     } catch (loadError) {
       if (!signal?.aborted) {
@@ -160,7 +160,7 @@ export function OfficeAttendanceWorkspace({ onNotice }: OfficeAttendanceWorkspac
     </div>
     <div className="form-grid">
       <label>Datum<input aria-label="Datum" onChange={(event) => setDate(event.target.value)} type="date" value={date} /></label>
-      <label>Lektion<select aria-label="Lektion auswählen" disabled={isLoadingLessons || lessons.length === 0} onChange={(event) => setSelectedLessonId(event.target.value)} value={selectedLessonId}><option value="">{isLoadingLessons ? "Lektionen werden geladen …" : "Keine geplante Lektion"}</option>{lessons.map((lesson) => <option key={lesson.id} value={lesson.id}>{lessonLabel(lesson)}</option>)}</select></label>
+      <label>Lektion<select aria-label="Lektion auswählen" disabled={isLoadingLessons || lessons.length === 0} onChange={(event) => setSelectedLessonId(event.target.value)} value={selectedLessonId}><option value="">{isLoadingLessons ? "Lektionen werden geladen …" : "Keine Lektion"}</option>{lessons.map((lesson) => <option key={lesson.id} value={lesson.id}>{lessonLabel(lesson)}{lesson.status === "completed" ? " · abgeschlossen" : ""}</option>)}</select></label>
     </div>
     {error ? <p className="planner-state" role="alert">{error}</p> : null}
     {selectedLesson ? <p className="dialog-course">{selectedLesson.language} {selectedLesson.level} · {selectedLesson.participant_count} eingeschrieben</p> : null}

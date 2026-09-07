@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await requireRole("office");
+    const actor = await requireRole("office");
     const input = createLessonSchema.parse(await request.json());
     const sql = db();
     const endAt = new Date(input.startsAt.getTime() + input.durationMinutes * 60_000);
@@ -57,6 +57,7 @@ export async function POST(request: Request) {
     if (conflicts.some((item) => item.room_id === input.roomId)) return NextResponse.json({ error: "Der Raum ist bereits belegt." }, { status: 409 });
     if (conflicts.length) return NextResponse.json({ error: "Die Lehrperson ist bereits eingeplant." }, { status: 409 });
     const [lesson] = await sql`INSERT INTO lessons (id, course_id, room_id, teacher_id, starts_at, duration_minutes, status) VALUES (${randomUUID()}, ${input.courseId}, ${input.roomId}, ${input.teacherId}, ${input.startsAt}, ${input.durationMinutes}, 'scheduled') RETURNING *`;
+    await sql`INSERT INTO change_history (id, entity_type, entity_id, event_type, summary, after_data, actor_id) VALUES (${randomUUID()}, 'lesson', ${lesson.id}, 'created', 'Lektion angelegt', ${JSON.stringify(lesson)}, ${actor.id})`;
     return NextResponse.json({ lesson }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Ungültige Lektionsdaten." }, { status: 400 });

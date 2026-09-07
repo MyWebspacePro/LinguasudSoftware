@@ -8,7 +8,7 @@ type Course = { id: string; code: string; language: string; level: string; durat
 type Teacher = { id: string; name: string; teaching_levels?: Array<{ language: string; levels: string[] }> };
 type Room = { id: string; name: string; location_name: string };
 type CourseSchedule = { id: string; course_id: string; weekday: number; start_time: string; duration_minutes: number };
-type CourseParticipant = { id: string; course_id: string; participant_name: string; participant_email: string; active: boolean };
+type CourseParticipant = { id: string; course_id: string; participant_id: string; participant_name: string; participant_email: string; active: boolean };
 type WeeklySlot = { weekday: number; startTime: string };
 type ScheduleDraft = { weekday: number; startTime: string; durationMinutes: number };
 
@@ -28,7 +28,7 @@ function teacherCanTeach(teacher: Teacher, language: string, level: string) {
   return (teacher.teaching_levels ?? []).some((entry) => entry.language.trim().toLocaleLowerCase() === requestedLanguage && entry.levels.includes(requestedLevel));
 }
 
-export function CourseWorkspace({ initiallyOpen = false, focusCourseId = null }: { initiallyOpen?: boolean; focusCourseId?: string | null }) {
+export function CourseWorkspace({ initiallyOpen = false, focusCourseId = null, onOpenParticipant }: { initiallyOpen?: boolean; focusCourseId?: string | null; onOpenParticipant?: (participantId: string) => void }) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -299,7 +299,7 @@ export function CourseWorkspace({ initiallyOpen = false, focusCourseId = null }:
       <div className="course-participants-heading"><div><p className="eyebrow">Kursbelegung</p><h2 id="course-participants-title">Teilnehmende in {editingCourse.code}</h2></div><button aria-label="Teilnehmerliste schliessen" className="dialog-close" onClick={closeEditor} type="button">×</button></div>
       {isLoadingParticipants ? <p className="planner-state">Teilnehmende werden geladen …</p> : null}
       {!isLoadingParticipants && courseParticipants.filter((participant) => participant.active).length === 0 ? <p className="planner-state">Keine aktiven Teilnehmenden in diesem Kurs.</p> : null}
-      <div className="course-participant-list">{courseParticipants.map((participant) => <div className={`course-participant-row${participant.active ? "" : " is-ended"}`} key={participant.id}><div><strong>{participant.participant_name}</strong><span>{participant.participant_email}</span>{!participant.active ? <small>Teilnahme beendet</small> : null}</div>{participant.active ? <button className="quiet-button" disabled={isSaving} onClick={() => void removeCourseParticipant(participant)} type="button">Teilnahme beenden</button> : null}</div>)}</div>
+      <div className="course-participant-list">{courseParticipants.map((participant) => <div className={`course-participant-row${participant.active ? "" : " is-ended"}`} key={participant.id}><div><button className="course-link" onClick={() => onOpenParticipant?.(participant.participant_id)} type="button">{participant.participant_name}</button><span>{participant.participant_email}</span>{!participant.active ? <small>Teilnahme beendet</small> : null}</div>{participant.active ? <button className="quiet-button" disabled={isSaving} onClick={() => void removeCourseParticipant(participant)} type="button">Teilnahme beenden</button> : null}</div>)}</div>
       <p className="form-hint">Neue Einschreibungen werden in der Teilnehmerverwaltung angelegt.</p>
     </section> : null}
   </section>;

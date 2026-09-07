@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { COURSE_LEVELS } from "@/lib/course-levels";
 
@@ -22,6 +22,7 @@ type LessonForAttendance = {
   room_name: string;
   location_name: string;
   status: "scheduled" | "completed" | "cancelled";
+  participant_count?: number | string;
 };
 
 type AttendanceEntry = {
@@ -51,6 +52,13 @@ function apiError(payload: unknown, fallback: string) {
     : fallback;
 }
 
+function lessonTimeRange(lesson: LessonForAttendance) {
+  const start = new Date(lesson.starts_at);
+  const end = new Date(start.getTime() + Number(lesson.duration_minutes) * 60_000);
+  const formatter = new Intl.DateTimeFormat("de-CH", { hour: "2-digit", minute: "2-digit" });
+  return `${formatter.format(start)}–${formatter.format(end)} Uhr`;
+}
+
 export function RoleWorkspace({ role, onNotice, userName = role === "teacher" ? "Lehrperson" : "Teilnehmer:in" }: RoleWorkspaceProps) {
   return role === "teacher" ? <TeacherWorkspace onNotice={onNotice} userName={userName} /> : <ParticipantWorkspace userName={userName} />;
 }
@@ -70,8 +78,45 @@ function TeacherWorkspace({ onNotice, userName }: { onNotice: (message: string) 
   const [isLevelLoading, setIsLevelLoading] = useState(false);
   const [isLevelSaving, setIsLevelSaving] = useState(false);
   const [levelError, setLevelError] = useState<string | null>(null);
+  const [todayLessons, setTodayLessons] = useState<LessonForAttendance[]>([]);
+  const [todayLessonsLoading, setTodayLessonsLoading] = useState(true);
+  const [todayLessonsError, setTodayLessonsError] = useState<string | null>(null);
+  const lessonsRequest = useRef<Promise<LessonForAttendance[]> | null>(null);
 
-  async function openAttendance() {
+  const loadTodayLessons = useCallback(async () => {
+    if (lessonsRequest.current) return lessonsRequest.current;
+    const request = (async () => {
+      setTodayLessonsLoading(true);
+      setTodayLessonsError(null);
+      try {
+        const response = await fetch(`/api/lessons?date=${localDateForApi()}`, { credentials: "same-origin" });
+        const payload: unknown = await response.json();
+        if (!response.ok) throw new Error(apiError(payload, "Deine Lektionen konnten nicht geladen werden."));
+        const loadedLessons = typeof payload === "object" && payload !== null && "lessons" in payload && Array.isArray(payload.lessons)
+          ? payload.lessons as LessonForAttendance[]
+          : [];
+        setTodayLessons(loadedLessons);
+        return loadedLessons;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Deine Lektionen konnten nicht geladen werden.";
+        setTodayLessonsError(message);
+        setTodayLessons([]);
+        throw error;
+      } finally {
+        setTodayLessonsLoading(false);
+      }
+    })();
+    lessonsRequest.current = request;
+    try {
+      return await request;
+    } finally {
+      lessonsRequest.current = null;
+    }
+  }, []);
+
+  useEffect(() => { void loadTodayLessons().catch(() => undefined); }, [loadTodayLessons]);
+
+  async function openAttendance(requestedLessonId?: string) {
     setIsAttendanceOpen(true);
     setAttendanceLesson(null);
     setAttendanceEntries([]);
@@ -80,14 +125,8 @@ function TeacherWorkspace({ onNotice, userName }: { onNotice: (message: string) 
     setIsAttendanceLoading(true);
 
     try {
-      const lessonsResponse = await fetch(`/api/lessons?date=${localDateForApi()}`, { credentials: "same-origin" });
-      const lessonsPayload: unknown = await lessonsResponse.json();
-      if (!lessonsResponse.ok) throw new Error(apiError(lessonsPayload, "Deine Lektionen konnten nicht geladen werden."));
-
-      const lessons = typeof lessonsPayload === "object" && lessonsPayload !== null && "lessons" in lessonsPayload && Array.isArray(lessonsPayload.lessons)
-        ? lessonsPayload.lessons as LessonForAttendance[]
-        : [];
-      const lesson = lessons.find((item) => item.status === "scheduled");
+      const lessons = todayLessons.length > 0 ? todayLessons : await loadTodayLessons();
+      const lesson = lessons.find((item) => item.id === requestedLessonId && item.status !== "cancelled") ?? lessons.find((item) => item.status === "scheduled") ?? lessons.find((item) => item.status === "completed");
       if (!lesson) {
         setAttendanceError("Für heute ist keine offene Lektion vorhanden.");
         return;
@@ -183,9 +222,13 @@ function TeacherWorkspace({ onNotice, userName }: { onNotice: (message: string) 
     }
   }
 
+  const scheduledTodayLessons = todayLessons.filter((lesson) => lesson.status === "scheduled");
+  const nextTodayLesson = scheduledTodayLessons[0];
+
   return <section className="role-workspace" aria-labelledby="teacher-title">
     <div className="role-workspace__intro"><p className="eyebrow">Lehrpersonenbereich</p><h2 id="teacher-title">Guten Abend, {userName}.</h2><p>Du siehst nur deine heutigen Lektionen und die dafür nötigen Teilnahmedaten.</p></div>
-    <article className="teacher-lesson"><div><span className="status-pill">Heute · 18:00 Uhr</span><h3>Deutsch A2 · Abendkurs</h3><p>Schaffhausen 1 · Raum A1 · 5 Teilnehmende</p></div><button className="primary-button" type="button" onClick={openAttendance}>Anwesenheit erfassen</button></article>
+    <article className="teacher-lesson"><div>{todayLessonsLoading && !nextTodayLesson ? <span className="status-pill">Lektionen werden geladen …</span> : nextTodayLesson ? <span className="status-pill">Heute · {lessonTimeRange(nextTodayLesson)}</span> : <span className="status-pill">Heute</span>}<h3>{nextTodayLesson ? `${nextTodayLesson.language} ${nextTodayLesson.level} · ${nextTodayLesson.code}` : "Keine offene Lektion"}</h3><p>{nextTodayLesson ? `${nextTodayLesson.location_name} · Raum ${nextTodayLesson.room_name} · ${nextTodayLesson.participant_count ?? 0} Teilnehmende` : todayLessonsError ? "Lektionen konnten nicht geladen werden. Details über Anwesenheit öffnen." : "Für heute ist keine Lektion geplant."}</p></div><button className="primary-button" type="button" onClick={() => void openAttendance(nextTodayLesson?.id)}>Anwesenheit erfassen</button></article>
+    {scheduledTodayLessons.length > 1 ? <section className="upcoming-lessons teacher-lessons-list" aria-labelledby="teacher-lessons-title"><p className="eyebrow">Weitere Lektionen heute</p><h3 id="teacher-lessons-title">Alle heutigen Lektionen</h3>{scheduledTodayLessons.slice(1).map((lesson) => <article key={lesson.id}><div><strong>{lessonTimeRange(lesson)}</strong><span>{lesson.language} {lesson.level} · {lesson.location_name} · Raum {lesson.room_name}</span></div><button className="quiet-button" type="button" onClick={() => void openAttendance(lesson.id)}>Anwesenheit erfassen</button></article>)}</section> : null}
     <div className="teacher-grid"><article><span>Danach</span><h3>Unterrichtsinhalt ergänzen</h3><p>Notiere Ablauf, Hausaufgaben und besondere Vorkommnisse direkt bei der Lektion.</p><button type="button" onClick={() => onNotice("Die Lektionsplanung öffnet sich nach Auswahl der konkreten Lektion.")}>Lektionsplanung öffnen →</button></article><article><span>Kursniveau</span><h3>Niveau selbst aktualisieren</h3><p>Du kannst das Niveau deiner eigenen Kurse ändern. Die Kurskennung bleibt beim Büro.</p><button type="button" onClick={() => void openLevelEditor()}>Kursniveau bearbeiten →</button></article></div>
     {isAttendanceOpen ? <div className="dialog-backdrop" role="presentation"><section className="attendance-dialog" aria-labelledby="attendance-title" role="dialog" aria-modal="true"><button aria-label="Anwesenheit schliessen" className="dialog-close" onClick={() => setIsAttendanceOpen(false)} type="button">×</button><p className="eyebrow">{attendanceLesson ? `${attendanceLesson.code} · ${new Intl.DateTimeFormat("de-CH", { hour: "2-digit", minute: "2-digit" }).format(new Date(attendanceLesson.starts_at))}` : "Anwesenheit"}</p><h2 id="attendance-title">Anwesenheit</h2><p className="dialog-course">Bitte nach der stattgefundenen Lektion bestätigen.</p>{isAttendanceLoading ? <p aria-live="polite">Anwesenheiten werden geladen …</p> : attendanceError ? <p aria-live="assertive" className="dialog-note">{attendanceError}</p> : <div className="attendance-list">{attendanceEntries.map((entry) => <div key={entry.enrollment_id}><strong>{entry.participant_name}</strong><select aria-label={`${entry.participant_name} Anwesenheit`} value={attendance[entry.enrollment_id] ?? "present"} onChange={(event) => setAttendance((current) => ({ ...current, [entry.enrollment_id]: event.target.value as AttendanceStatus }))}>{attendanceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>)}</div>}<div className="dialog-actions"><button className="quiet-button" disabled={isAttendanceSaving} onClick={() => setIsAttendanceOpen(false)} type="button">Abbrechen</button><button className="primary-button" disabled={isAttendanceLoading || isAttendanceSaving || !attendanceLesson || attendanceEntries.length === 0} onClick={saveAttendance} type="button">{isAttendanceSaving ? "Wird gespeichert …" : "Anwesenheit bestätigen"}</button></div></section></div> : null}
     {isLevelEditorOpen ? <div className="dialog-backdrop" role="presentation"><section className="attendance-dialog" aria-labelledby="course-level-title" role="dialog" aria-modal="true"><button aria-label="Kursniveau schliessen" className="dialog-close" onClick={() => setIsLevelEditorOpen(false)} type="button">×</button><p className="eyebrow">Meine Kurse</p><h2 id="course-level-title">Kursniveau bearbeiten</h2>{isLevelLoading ? <p className="planner-state">Kurse werden geladen …</p> : levelError && teacherCourses.length === 0 ? <p className="dialog-note" role="alert">{levelError}</p> : teacherCourses.length === 0 ? <p className="planner-state">Dir sind noch keine Kurse zugeordnet.</p> : <div className="form-grid"><label>Kurs<select aria-label="Kurs auswählen" onChange={(event) => { setSelectedCourseId(event.target.value); setSelectedLevel(teacherCourses.find((course) => course.id === event.target.value)?.level ?? ""); }} value={selectedCourseId}>{teacherCourses.map((course) => <option key={course.id} value={course.id}>{course.code} · {course.language} {course.level}</option>)}</select></label><label>Neues Niveau<select aria-label="Neues Niveau" onChange={(event) => setSelectedLevel(event.target.value)} value={selectedLevel}>{COURSE_LEVELS.map((level) => <option key={level}>{level}</option>)}</select></label></div>}{levelError && teacherCourses.length > 0 ? <p className="dialog-note" role="alert">{levelError}</p> : null}<div className="dialog-actions"><button className="quiet-button" disabled={isLevelSaving} onClick={() => setIsLevelEditorOpen(false)} type="button">Abbrechen</button><button className="primary-button" disabled={isLevelLoading || isLevelSaving || teacherCourses.length === 0 || !selectedLevel} onClick={() => void saveCourseLevel()} type="button">{isLevelSaving ? "Wird gespeichert …" : "Niveau speichern"}</button></div></section></div> : null}

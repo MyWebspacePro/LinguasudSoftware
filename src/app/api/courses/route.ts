@@ -58,7 +58,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requireRole("office");
+    const actor = await requireRole("office");
     const payload = createCourseSchema.parse(await request.json());
     const sql = db();
     const [teacher] = await sql`SELECT id FROM users WHERE id = ${payload.teacherId} AND role = 'teacher'`;
@@ -104,6 +104,10 @@ export async function POST(request: Request) {
           `;
         }
       }
+      await transaction`
+        INSERT INTO change_history (id, entity_type, entity_id, event_type, summary, after_data, actor_id)
+        VALUES (${randomUUID()}, 'course', ${createdCourse.id}, 'created', 'Kurs angelegt', ${JSON.stringify(createdCourse)}, ${actor.id})
+      `;
       return createdCourse;
     });
     return NextResponse.json({ course }, { status: 201 });

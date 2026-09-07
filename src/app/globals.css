@@ -474,6 +474,14 @@ button {
 .qualification-remove { align-self: end; padding: 8px 9px; color: #a2382e; font-size: 0.68rem; }
 .qualification-add { justify-self: start; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: #f5f8f6; color: var(--teal-deep); font-size: 0.72rem; }
 .qualification-fields > small, .notes-fields > small { color: var(--ink-soft); font-size: 0.69rem; }
+.room-catalog { margin-top: 22px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.room-catalog__heading { display: flex; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); color: var(--ink); }
+.room-catalog__heading span { color: var(--muted); }
+.room-catalog__row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 16px; border-bottom: 1px solid var(--border); }
+.room-catalog__row:last-child { border-bottom: 0; }
+.room-catalog__row div { display: grid; gap: 3px; }
+.room-catalog__row span { color: var(--muted); font-size: .86rem; }
+.room-course-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .notes-history { display: grid; gap: 7px; max-height: 180px; overflow: auto; padding: 9px; border: 1px solid var(--border); border-radius: 7px; background: #f8fbf9; }
 .note-entry { padding-bottom: 7px; border-bottom: 1px solid var(--border); }
 .note-entry:last-child { padding-bottom: 0; border-bottom: 0; }
@@ -607,6 +615,7 @@ button {
   .teacher-lesson, .next-lesson-card { align-items: flex-start; flex-direction: column; }
   .teacher-grid, .participant-grid { grid-template-columns: 1fr; }
   .upcoming-lessons article { grid-template-columns: 1fr; gap: 5px; }
+  .room-catalog__row { align-items: flex-start; flex-direction: column; }
   .billing-list article { align-items: flex-start; flex-direction: column; }
   .billing-list article > div:last-child { text-align: left; }
 }

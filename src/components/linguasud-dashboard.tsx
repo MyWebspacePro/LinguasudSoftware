@@ -173,6 +173,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
   const [activeView, setActiveView] = useState<View>("dashboard");
   const [activeDay, setActiveDay] = useState(zurichDate);
   const activeRole = user.role;
+  const [focusParticipantId, setFocusParticipantId] = useState<string | null>(null);
   const [lessons, setLessons] = useState<PlannerLesson[]>(demoLessons);
   const [plannerRooms, setPlannerRooms] = useState<PlannerRoom[]>(demoRooms);
   const [plannerLocations, setPlannerLocations] = useState<Location[]>(demoLocations);
@@ -328,10 +329,25 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
     void moveLesson(lessonId, roomId, DAY_START + slot * SLOT_MINUTES);
   }
 
-  function undoLastMove() {
+  async function undoLastMove() {
     if (!lastMove) return;
     const movedLesson = lessons.find((lesson) => lesson.id === lastMove.lessonId);
     if (!movedLesson) return;
+    if (isUuid(lastMove.lessonId) && isUuid(lastMove.roomId)) {
+      try {
+        const response = await fetch(`/api/lessons/${lastMove.lessonId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ roomId: lastMove.roomId, startsAt: new Date(`${activeDay}T${formatTime(lastMove.startMinutes)}:00`).toISOString() }),
+        });
+        const payload = await response.json() as { error?: string };
+        if (!response.ok) throw new Error(payload.error ?? "Die Rückgängigmachung konnte nicht gespeichert werden.");
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "Die Rückgängigmachung konnte nicht gespeichert werden.");
+        return;
+      }
+    }
     setLessons((current) => current.map((lesson) => lesson.id === lastMove.lessonId ? { ...lesson, roomId: lastMove.roomId, startMinutes: lastMove.startMinutes } : lesson));
     setNotice(`${movedLesson.courseCode} wurde zurückverschoben.`);
     setLastMove(null);
@@ -347,7 +363,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
         {activeRole === "office" ? <nav aria-label="Hauptnavigation">
           <p className="nav-label">Organisation</p>
           {navigation.map(([view, label]) => (
-            <button className={`nav-item ${activeView === view ? "nav-item--active" : ""}`} key={view} onClick={() => { setCourseOpenRequest(0); setFocusCourseId(null); setActiveView(view); }} type="button">
+              <button className={`nav-item ${activeView === view ? "nav-item--active" : ""}`} key={view} onClick={() => { setCourseOpenRequest(0); setFocusCourseId(null); setFocusParticipantId(null); setActiveView(view); }} type="button">
               <span aria-hidden="true">{view === "dashboard" ? "▦" : view === "teilnehmer" ? "◉" : view === "lehrpersonen" ? "♧" : view === "kurse" ? "◫" : view === "raeume" ? "▤" : "⊞"}</span>{label}
             </button>
           ))}
@@ -364,7 +380,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
         </header>
 
         {activeRole !== "office" ? <RoleWorkspace role={activeRole} userName={user.name} onNotice={setNotice} /> : activeView === "dashboard" ? <>
-          <DashboardNotifications />
+          <DashboardNotifications onOpenCourse={(courseId) => { setFocusCourseId(courseId); setActiveView("kurse"); }} />
           <section className="planner-panel" aria-labelledby="room-plan-title">
             <h2 className="sr-only" id="room-plan-title">Tägliches Raumraster</h2>
             <div className="planner-toolbar">
@@ -401,7 +417,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
           <DashboardOverview />
           {isAttendanceOpen ? <div className="dialog-backdrop" role="presentation"><div className="attendance-dialog attendance-dialog--wide"><button aria-label="Anwesenheiten schliessen" className="dialog-close" onClick={() => setIsAttendanceOpen(false)} type="button">×</button><OfficeAttendanceWorkspace onNotice={(message) => { setNotice(message); setIsAttendanceOpen(false); }} /></div></div> : null}
         </>
-        : activeView === "teilnehmer" ? <PeopleWorkspace mode="participants" onOpenCourse={(courseId) => { setFocusCourseId(courseId); setActiveView("kurse"); }} /> : activeView === "lehrpersonen" ? <PeopleWorkspace mode="teachers" /> : activeView === "kurse" ? <CourseWorkspace initiallyOpen={courseOpenRequest > 0} focusCourseId={focusCourseId} key={`${courseOpenRequest}-${focusCourseId ?? "all"}`} /> : activeView === "raeume" ? <RoomsWorkspace /> : <BillingWorkspace />}
+        : activeView === "teilnehmer" ? <PeopleWorkspace mode="participants" focusPersonId={focusParticipantId} onOpenCourse={(courseId) => { setFocusParticipantId(null); setFocusCourseId(courseId); setActiveView("kurse"); }} /> : activeView === "lehrpersonen" ? <PeopleWorkspace mode="teachers" onOpenCourse={(courseId) => { setFocusCourseId(courseId); setActiveView("kurse"); }} /> : activeView === "kurse" ? <CourseWorkspace initiallyOpen={courseOpenRequest > 0} focusCourseId={focusCourseId} onOpenParticipant={(participantId) => { setFocusCourseId(null); setFocusParticipantId(participantId); setActiveView("teilnehmer"); }} key={`${courseOpenRequest}-${focusCourseId ?? "all"}`} /> : activeView === "raeume" ? <RoomsWorkspace onOpenCourse={(courseId) => { setFocusCourseId(courseId); setActiveView("kurse"); }} /> : <BillingWorkspace />}
       </main>
 
       {selectedLesson ? <LessonDialog lesson={selectedLesson} rooms={plannerRooms} locations={plannerLocations} onClose={() => setSelectedLessonId(null)} onCancel={async () => {

@@ -28,4 +28,6 @@ Die Listen- und Detailrouten liefern neben den flachen IDs auch strukturierte Re
 | Teilnahme | `/api/enrollments/:enrollmentId` | Teilnehmer, Kurs, Lektionen, Anwesenheiten, Pausen, Abrechnung, Historie |
 | Lektion | `/api/lessons/:lessonId` | Kurs, Raum, Lehrperson, Teilnehmerliste und Anwesenheitsreferenzen |
 
+Stammdatenänderungen erfolgen über `PATCH /api/rooms/:roomId`, `PATCH /api/locations/:locationId` und `PATCH /api/courses/:courseId` (Kursstatus, Kurskennung und Niveau). Anlage, Änderungen, Verschiebungen, Abmeldungen und Statuswechsel werden in `change_history` protokolliert. Die Raumverwaltung kann mit `GET /api/rooms?includeInactive=true` auch deaktivierte Räume für eine Reaktivierung laden; der Planer verwendet weiterhin nur aktive Räume.
+
 Die Migrationen `013_person_identity_and_notes.sql`, `014_cross_reference_indexes.sql` und `015_identity_value_constraints.sql` werden beim Start des Containers automatisch angewendet.
