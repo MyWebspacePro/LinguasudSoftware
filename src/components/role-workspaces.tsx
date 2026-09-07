@@ -49,7 +49,7 @@ function apiError(payload: unknown, fallback: string) {
 }
 
 export function RoleWorkspace({ role, onNotice, userName = role === "teacher" ? "Lehrperson" : "Teilnehmer:in" }: RoleWorkspaceProps) {
-  return role === "teacher" ? <TeacherWorkspace onNotice={onNotice} userName={userName} /> : <ParticipantWorkspace onNotice={onNotice} userName={userName} />;
+  return role === "teacher" ? <TeacherWorkspace onNotice={onNotice} userName={userName} /> : <ParticipantWorkspace userName={userName} />;
 }
 
 function TeacherWorkspace({ onNotice, userName }: { onNotice: (message: string) => void; userName: string }) {
@@ -148,10 +148,8 @@ type NextLesson = {
   teacher_name: string;
 };
 
-function ParticipantWorkspace({ onNotice, userName }: { onNotice: (message: string) => void; userName: string }) {
-  const [emailEnabled, setEmailEnabled] = useState(true);
-  const [pushEnabled, setPushEnabled] = useState(false);
-  const [nextLesson, setNextLesson] = useState<NextLesson | null>(null);
+function ParticipantWorkspace({ userName }: { userName: string }) {
+  const [nextLessons, setNextLessons] = useState<NextLesson[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -161,7 +159,7 @@ function ParticipantWorkspace({ onNotice, userName }: { onNotice: (message: stri
         const response = await fetch("/api/participant/next-lessons", { credentials: "same-origin", signal: controller.signal });
         const payload = await response.json() as { lessons?: NextLesson[]; error?: string };
         if (!response.ok) throw new Error(payload.error ?? "Nächste Lektion konnte nicht geladen werden.");
-        if (!controller.signal.aborted) setNextLesson(payload.lessons?.[0] ?? null);
+        if (!controller.signal.aborted) setNextLessons(payload.lessons ?? []);
       } catch (error) {
         if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : "Nächste Lektion konnte nicht geladen werden.");
       }
@@ -169,12 +167,13 @@ function ParticipantWorkspace({ onNotice, userName }: { onNotice: (message: stri
     return () => controller.abort();
   }, []);
 
+  const nextLesson = nextLessons[0] ?? null;
   const date = nextLesson ? new Date(nextLesson.starts_at) : null;
   const end = date && nextLesson ? new Date(date.getTime() + Number(nextLesson.duration_minutes) * 60_000) : null;
 
   return <section className="role-workspace participant-workspace" aria-labelledby="participant-title">
     <div className="role-workspace__intro"><p className="eyebrow">Mein Kurs</p><h2 id="participant-title">Hallo {userName}.</h2><p>Hier findest du deine nächsten Termine und wichtige Änderungen.</p></div>
     {loadError ? <p className="planner-state" role="alert">{loadError}</p> : nextLesson && date && end ? <article className="next-lesson-card"><div className="next-lesson-card__date"><strong>{new Intl.DateTimeFormat("de-CH", { weekday: "short" }).format(date)}</strong><span>{new Intl.DateTimeFormat("de-CH", { day: "2-digit" }).format(date)}</span><small>{new Intl.DateTimeFormat("de-CH", { month: "short" }).format(date)}</small></div><div><span className="status-pill">{nextLesson.status === "cancelled" ? "Abgesagt" : "Nächste Lektion"}</span><h3>{nextLesson.course_language} {nextLesson.course_level}</h3><p>{new Intl.DateTimeFormat("de-CH", { hour: "2-digit", minute: "2-digit" }).format(date)}–{new Intl.DateTimeFormat("de-CH", { hour: "2-digit", minute: "2-digit" }).format(end)} Uhr · {nextLesson.location_name ?? "Raum wird bekanntgegeben"} · {nextLesson.room_name ?? ""}</p><p className="teacher-line">Lehrperson: {nextLesson.teacher_name}</p></div></article> : <p className="planner-state">Es ist keine kommende Lektion geplant.</p>}
-    <div className="participant-grid"><article><span>Benachrichtigungen</span><h3>Erinnerungen</h3><label><input checked={emailEnabled} onChange={(event) => setEmailEnabled(event.target.checked)} type="checkbox" /> E-Mail vor dem Termin</label><label><input checked={pushEnabled} onChange={(event) => setPushEnabled(event.target.checked)} type="checkbox" /> Push bei Raum- oder Zeitänderung</label><button type="button" onClick={() => onNotice("Benachrichtigungseinstellungen gespeichert.")}>Einstellungen speichern →</button></article><article><span>Wichtig</span><h3>Änderungen sofort sichtbar</h3><p>Bei einer Absage oder Raumänderung erscheint die aktuelle Information hier. Zusätzlich wird die gewählte Erinnerung ausgelöst.</p><button type="button" onClick={() => onNotice("Aktuell gibt es keine Änderungen an deinem Kurs.")}>Aktuellen Status prüfen →</button></article></div>
+    {nextLessons.length > 1 ? <section className="upcoming-lessons" aria-labelledby="upcoming-lessons-title"><p className="eyebrow">Weitere Termine</p><h3 id="upcoming-lessons-title">Die nächsten Kursdaten</h3>{nextLessons.slice(1, 6).map((lesson) => { const lessonDate = new Date(lesson.starts_at); const lessonEnd = new Date(lessonDate.getTime() + Number(lesson.duration_minutes) * 60_000); return <article key={`${lesson.starts_at}-${lesson.course_code}`}><strong>{new Intl.DateTimeFormat("de-CH", { weekday: "long", day: "2-digit", month: "long" }).format(lessonDate)}</strong><span>{new Intl.DateTimeFormat("de-CH", { hour: "2-digit", minute: "2-digit" }).format(lessonDate)}–{new Intl.DateTimeFormat("de-CH", { hour: "2-digit", minute: "2-digit" }).format(lessonEnd)} Uhr</span><span>{lesson.location_name ?? "Raum wird bekanntgegeben"} · {lesson.room_name ?? ""}</span>{lesson.status === "cancelled" ? <em>Abgesagt</em> : null}</article>; })}</section> : null}
   </section>;
 }

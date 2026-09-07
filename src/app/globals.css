@@ -494,6 +494,11 @@ button {
 .teacher-line { margin-top: 9px !important; font-size: 0.75rem !important; }
 .participant-grid label { display: block; margin: 11px 0; color: var(--ink-soft); font-size: 0.8rem; }
 .participant-grid input { accent-color: var(--teal); }
+.upcoming-lessons { margin-top: 28px; }
+.upcoming-lessons > h3 { margin: 5px 0 12px; font-size: 1.05rem; }
+.upcoming-lessons article { display: grid; grid-template-columns: minmax(180px, 1.2fr) 150px 1.4fr auto; gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); color: var(--ink-soft); font-size: 0.78rem; }
+.upcoming-lessons article strong { color: var(--ink); font-size: 0.82rem; }
+.upcoming-lessons article em { color: #a2382e; font-style: normal; font-weight: 800; }
 
 @media (max-width: 880px) {
   .app-shell { display: block; }
@@ -518,6 +523,7 @@ button {
   .form-grid { grid-template-columns: 1fr; }
   .teacher-lesson, .next-lesson-card { align-items: flex-start; flex-direction: column; }
   .teacher-grid, .participant-grid { grid-template-columns: 1fr; }
+  .upcoming-lessons article { grid-template-columns: 1fr; gap: 5px; }
   .billing-list article { align-items: flex-start; flex-direction: column; }
   .billing-list article > div:last-child { text-align: left; }
 }
