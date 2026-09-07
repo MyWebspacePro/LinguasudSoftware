@@ -10,7 +10,7 @@ type RoleWorkspaceProps = {
   userName?: string;
 };
 
-type AttendanceStatus = "present" | "excused" | "unexcused" | "cancelled_short_notice" | "trial" | "online";
+type AttendanceStatus = "present" | "excused" | "unexcused" | "trial" | "online";
 
 type LessonForAttendance = {
   id: string;
@@ -36,7 +36,6 @@ const attendanceOptions: Array<{ value: AttendanceStatus; label: string }> = [
   { value: "present", label: "Anwesend" },
   { value: "excused", label: "Entschuldigt" },
   { value: "unexcused", label: "Unentschuldigt" },
-  { value: "cancelled_short_notice", label: "Kurzfristig abgesagt" },
   { value: "online", label: "Online teilgenommen" },
   { value: "trial", label: "Probelektion" },
 ];

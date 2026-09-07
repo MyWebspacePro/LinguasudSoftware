@@ -36,8 +36,7 @@ export async function GET() {
                     'excused', count(*) FILTER (WHERE a.status = 'excused')::int,
                     'unexcused', count(*) FILTER (WHERE a.status = 'unexcused')::int,
                     'online', count(*) FILTER (WHERE a.status = 'online')::int,
-                    'trial', count(*) FILTER (WHERE a.status = 'trial')::int,
-                    'cancelled', count(*) FILTER (WHERE a.status = 'cancelled_short_notice')::int
+                    'trial', count(*) FILTER (WHERE a.status = 'trial')::int
                   ) FROM attendance a WHERE a.enrollment_id = enrollments.id) AS attendance_summary,
                  COALESCE((SELECT json_agg(json_build_object('id', p.id, 'startsOn', p.starts_on, 'endsOn', p.ends_on, 'reason', p.reason) ORDER BY p.starts_on DESC) FROM enrollment_pauses p WHERE p.enrollment_id = enrollments.id), '[]') AS pauses
           FROM enrollments
@@ -55,8 +54,7 @@ export async function GET() {
                       'excused', count(*) FILTER (WHERE a.status = 'excused')::int,
                       'unexcused', count(*) FILTER (WHERE a.status = 'unexcused')::int,
                       'online', count(*) FILTER (WHERE a.status = 'online')::int,
-                      'trial', count(*) FILTER (WHERE a.status = 'trial')::int,
-                      'cancelled', count(*) FILTER (WHERE a.status = 'cancelled_short_notice')::int
+                      'trial', count(*) FILTER (WHERE a.status = 'trial')::int
                     ) FROM attendance a WHERE a.enrollment_id = enrollments.id) AS attendance_summary,
                    COALESCE((SELECT json_agg(json_build_object('id', p.id, 'startsOn', p.starts_on, 'endsOn', p.ends_on, 'reason', p.reason) ORDER BY p.starts_on DESC) FROM enrollment_pauses p WHERE p.enrollment_id = enrollments.id), '[]') AS pauses
             FROM enrollments
@@ -73,8 +71,7 @@ export async function GET() {
                       'excused', count(*) FILTER (WHERE a.status = 'excused')::int,
                       'unexcused', count(*) FILTER (WHERE a.status = 'unexcused')::int,
                       'online', count(*) FILTER (WHERE a.status = 'online')::int,
-                      'trial', count(*) FILTER (WHERE a.status = 'trial')::int,
-                      'cancelled', count(*) FILTER (WHERE a.status = 'cancelled_short_notice')::int
+                      'trial', count(*) FILTER (WHERE a.status = 'trial')::int
                     ) FROM attendance a WHERE a.enrollment_id = enrollments.id) AS attendance_summary,
                    COALESCE((SELECT json_agg(json_build_object('id', p.id, 'startsOn', p.starts_on, 'endsOn', p.ends_on, 'reason', p.reason) ORDER BY p.starts_on DESC) FROM enrollment_pauses p WHERE p.enrollment_id = enrollments.id), '[]') AS pauses
             FROM enrollments

@@ -47,7 +47,7 @@ describe("PeopleWorkspace", () => {
       course_code: "DEUA101",
       course_language: "Deutsch",
       course_level: "A1",
-      attendance_summary: { present: 3, excused: 1, unexcused: 0, online: 0, trial: 0, cancelled: 0 },
+      attendance_summary: { present: 3, excused: 1, unexcused: 0, online: 0, trial: 0 },
       pauses: [],
     };
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

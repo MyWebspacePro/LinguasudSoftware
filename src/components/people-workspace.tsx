@@ -6,7 +6,7 @@ type PersonRole = "office" | "teacher" | "participant";
 type TeachingLevel = { language: string; levels: string[] };
 type Person = { id: string; name: string; email: string; role: PersonRole; phone?: string | null; street?: string | null; postal_code?: string | null; city?: string | null; preferred_contact?: "email" | "phone" | "postal" | null; email_reminders?: boolean; language_preference?: string | null; notes?: string | null; teacher_code?: string | null; rate_per_lesson?: number | null; teaching_levels?: TeachingLevel[]; course_count?: number; history?: Array<{ eventType: string; summary: string; occurredAt: string }> };
 type Course = { id: string; code: string; language: string; level: string; teacher_id: string; teacher_name: string };
-type AttendanceSummary = { present: number; excused: number; unexcused: number; online: number; trial: number; cancelled: number };
+type AttendanceSummary = { present: number; excused: number; unexcused: number; online: number; trial: number };
 type EnrollmentPause = { id: string; startsOn: string; endsOn: string | null; reason: string | null };
 type Enrollment = { id: string; participant_id: string; course_id: string; billing_type: "private" | "authority"; credit_lessons: number | null; payment_status?: "open" | "partially_paid" | "paid" | "overdue"; purchased_amount?: number | null; payer_name?: string | null; case_reference?: string | null; approved_lessons?: number | null; approved_amount?: number | null; valid_from?: string | null; valid_until?: string | null; tariff?: number | null; invoice_recipient?: string | null; active: boolean; course_code: string; course_language: string; course_level: string; attendance_summary?: AttendanceSummary; pauses?: EnrollmentPause[] };
 
@@ -33,11 +33,10 @@ function formatParticipantDate(value: string | null) {
 }
 
 function attendanceText(summary: AttendanceSummary | undefined) {
-  const current = summary ?? { present: 0, excused: 0, unexcused: 0, online: 0, trial: 0, cancelled: 0 };
+  const current = summary ?? { present: 0, excused: 0, unexcused: 0, online: 0, trial: 0 };
   const parts = [`${current.present} anwesend`, `${current.excused} entschuldigt`, `${current.unexcused} unentschuldigt`];
   if (current.online > 0) parts.push(`${current.online} online`);
   if (current.trial > 0) parts.push(`${current.trial} Probelektion`);
-  if (current.cancelled > 0) parts.push(`${current.cancelled} kurzfristig abgesagt`);
   return parts.join(" · ");
 }
 

@@ -9,7 +9,6 @@ const attendanceStatusSchema = z.enum([
   "present",
   "excused",
   "unexcused",
-  "cancelled_short_notice",
   "trial",
   "online",
 ]);
