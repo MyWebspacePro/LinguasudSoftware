@@ -53,11 +53,11 @@ async function attendanceUser(): Promise<AuthorizedUser | null> {
 async function lessonForUser(lessonId: string, user: AuthorizedUser) {
   const sql = db();
   const [lesson] = user.role === "office"
-    ? await sql<{ id: string; course_id: string; status: string }[]>`
-        SELECT id, course_id, status FROM lessons WHERE id = ${lessonId} AND status <> 'cancelled'
+    ? await sql<{ id: string; course_id: string; status: string; starts_at: string }[]>`
+        SELECT id, course_id, status, starts_at FROM lessons WHERE id = ${lessonId} AND status <> 'cancelled'
       `
-    : await sql<{ id: string; course_id: string; status: string }[]>`
-        SELECT id, course_id, status FROM lessons WHERE id = ${lessonId} AND teacher_id = ${user.id} AND status <> 'cancelled'
+    : await sql<{ id: string; course_id: string; status: string; starts_at: string }[]>`
+        SELECT id, course_id, status, starts_at FROM lessons WHERE id = ${lessonId} AND teacher_id = ${user.id} AND status <> 'cancelled'
       `;
   return lesson ?? null;
 }
@@ -118,6 +118,9 @@ async function upsertAttendance(request: Request) {
     const input = upsertAttendanceSchema.parse(await request.json());
     const lesson = await lessonForUser(input.lessonId, user);
     if (!lesson) return NextResponse.json({ error: "Lektion nicht gefunden." }, { status: 404 });
+    if (new Date(lesson.starts_at).getTime() > Date.now()) {
+      return NextResponse.json({ error: "Die Anwesenheit kann erst nach der Lektion bestätigt werden." }, { status: 409 });
+    }
 
     const sql = db();
     const enrollmentIds = input.entries.map((entry) => entry.enrollmentId);

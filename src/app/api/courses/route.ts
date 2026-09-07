@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     const actor = await requireRole("office");
     const payload = createCourseSchema.parse(await request.json());
     const sql = db();
-    const [teacher] = await sql`SELECT id FROM users WHERE id = ${payload.teacherId} AND role = 'teacher'`;
+    const [teacher] = await sql`SELECT users.id FROM users LEFT JOIN teacher_profiles ON teacher_profiles.user_id = users.id WHERE users.id = ${payload.teacherId} AND users.role = 'teacher' AND COALESCE(teacher_profiles.active, true) = true`;
     if (!teacher) return NextResponse.json({ error: "Lehrperson wurde nicht gefunden." }, { status: 404 });
     const [room] = await sql`SELECT id FROM rooms WHERE id = ${payload.standardRoomId} AND active = true`;
     if (!room) return NextResponse.json({ error: "Standardraum ist nicht verfügbar." }, { status: 400 });

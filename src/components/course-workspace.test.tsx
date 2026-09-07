@@ -56,6 +56,8 @@ describe("CourseWorkspace", () => {
       if (url === "/api/course-schedules" && init?.method === "DELETE") return { ok: true, json: async () => ({}) };
       if (url === "/api/course-schedules") return { ok: true, json: async () => ({ schedules: [schedule] }) };
       if (url === "/api/enrollments") return { ok: true, json: async () => ({ enrollments: [] }) };
+      if (url === "/api/courses/course-1/breaks" && !init?.method) return { ok: true, json: async () => ({ breaks: [] }) };
+      if (url === "/api/courses/course-1/breaks" && init?.method === "POST") return { ok: true, json: async () => ({ break: { id: "break-1" } }) };
       return { ok: false, json: async () => ({ error: "Unbekannte Anfrage" }) };
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -88,6 +90,14 @@ describe("CourseWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Termin löschen" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/course-schedules", expect.objectContaining({ method: "DELETE" })));
+
+    fireEvent.change(screen.getByLabelText("Unterbruch von"), { target: { value: "2026-12-24" } });
+    fireEvent.change(screen.getByLabelText("Unterbruch bis"), { target: { value: "2027-01-04" } });
+    fireEvent.change(screen.getByLabelText("Grund des Unterbruchs"), { target: { value: "Weihnachtsferien" } });
+    fireEvent.click(screen.getByRole("button", { name: "Unterbruch erfassen" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/courses/course-1/breaks", expect.objectContaining({ method: "POST" })));
+    const courseBreak = fetchMock.mock.calls.find(([url, init]) => url === "/api/courses/course-1/breaks" && init?.method === "POST");
+    expect(JSON.parse(String(courseBreak?.[1]?.body))).toEqual({ startsOn: "2026-12-24", endsOn: "2027-01-04", reason: "Weihnachtsferien" });
   });
 
   it("shows the course roster and ends an active participation", async () => {
@@ -100,6 +110,7 @@ describe("CourseWorkspace", () => {
       if (url === "/api/rooms") return { ok: true, json: async () => ({ rooms: [] }) };
       if (url === "/api/course-schedules") return { ok: true, json: async () => ({ schedules: [] }) };
       if (url === "/api/enrollments" && !init?.method) return { ok: true, json: async () => ({ enrollments: [enrollment] }) };
+      if (url === "/api/courses/course-1/breaks") return { ok: true, json: async () => ({ breaks: [] }) };
       if (url === "/api/enrollments/enrollment-1" && init?.method === "DELETE") return { ok: true, json: async () => ({ enrollment: { ...enrollment, active: false } }) };
       return { ok: false, json: async () => ({ error: "Unbekannte Anfrage" }) };
     });

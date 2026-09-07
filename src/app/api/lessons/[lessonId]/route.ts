@@ -81,7 +81,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ lesso
     if (lesson.standard_location_name === "Winterthur" && room.location_id !== lesson.standard_location_id) return NextResponse.json({ error: "Winterthur-Kurse müssen am Standort Winterthur bleiben." }, { status: 409 });
     const targetTeacherId = input.teacherId ?? lesson.teacher_id;
     if (targetTeacherId !== lesson.teacher_id) {
-      const [teacher] = await sql`SELECT id FROM users WHERE id = ${targetTeacherId} AND role = 'teacher'`;
+      const [teacher] = await sql`SELECT users.id FROM users LEFT JOIN teacher_profiles ON teacher_profiles.user_id = users.id WHERE users.id = ${targetTeacherId} AND users.role = 'teacher' AND COALESCE(teacher_profiles.active, true) = true`;
       if (!teacher) return NextResponse.json({ error: "Vertretende Lehrperson wurde nicht gefunden." }, { status: 404 });
       const [qualification] = await sql`SELECT 1 FROM teacher_teaching_levels WHERE teacher_id = ${targetTeacherId} AND lower(language) = lower(${lesson.language}) AND level = ${qualificationLevel(lesson.level)} LIMIT 1`;
       if (!qualification) return NextResponse.json({ error: `Die Vertretung ist für ${lesson.language} ${lesson.level} nicht qualifiziert.` }, { status: 409 });

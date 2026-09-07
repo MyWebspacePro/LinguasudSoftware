@@ -3,11 +3,7 @@
 import { type CSSProperties, type DragEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
-  demoLessons,
   formatTime,
-  locations as demoLocations,
-  rooms as demoRooms,
-  type DemoLesson,
   type Location,
   type Room,
   type UserRole,
@@ -39,8 +35,25 @@ const navigation = [
 type View = (typeof navigation)[number][0];
 type Move = { lessonId: string; roomId: string; startMinutes: number };
 type PlannerStatus = "loading" | "ready" | "error";
-type PlannerLesson = Omit<DemoLesson, "participantCount"> & { participantCount: number | null; standardLocationId?: string | null; standardLocationName?: string | null };
+type PlannerLesson = {
+  id: string;
+  courseCode: string;
+  courseName: string;
+  language: string;
+  level: string;
+  participantCount: number | null;
+  teacher: string;
+  teacherId: string;
+  roomId: string;
+  date: string;
+  startMinutes: number;
+  durationMinutes: number;
+  status: "scheduled" | "completed" | "cancelled";
+  standardLocationId?: string | null;
+  standardLocationName?: string | null;
+};
 type PlannerRoom = Room;
+type PlannerTeacher = { id: string; name: string; active?: boolean; teaching_levels?: Array<{ language: string; levels: string[] }> };
 type DashboardUser = { name: string; role: UserRole };
 
 type ApiRoom = {
@@ -71,8 +84,10 @@ function overlaps(startA: number, endA: number, startB: number, endB: number) {
   return startA < endB && startB < endA;
 }
 
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+function teacherCanTeach(teacher: PlannerTeacher, language: string, level: string) {
+  const requestedLanguage = language.trim().toLocaleLowerCase();
+  const requestedLevel = level.slice(0, 2).replace("+", "");
+  return (teacher.teaching_levels ?? []).some((entry) => entry.language.trim().toLocaleLowerCase() === requestedLanguage && entry.levels.includes(requestedLevel));
 }
 
 function roomLabel(roomId: string, rooms: PlannerRoom[], locations: Location[]) {
@@ -174,9 +189,9 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
   const [activeDay, setActiveDay] = useState(zurichDate);
   const activeRole = user.role;
   const [focusParticipantId, setFocusParticipantId] = useState<string | null>(null);
-  const [lessons, setLessons] = useState<PlannerLesson[]>(demoLessons);
-  const [plannerRooms, setPlannerRooms] = useState<PlannerRoom[]>(demoRooms);
-  const [plannerLocations, setPlannerLocations] = useState<Location[]>(demoLocations);
+  const [lessons, setLessons] = useState<PlannerLesson[]>([]);
+  const [plannerRooms, setPlannerRooms] = useState<PlannerRoom[]>([]);
+  const [plannerLocations, setPlannerLocations] = useState<Location[]>([]);
   const [plannerStatus, setPlannerStatus] = useState<PlannerStatus>("loading");
   const [plannerError, setPlannerError] = useState<string | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
@@ -224,18 +239,12 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
 
       const apiRooms = Array.isArray(roomsPayload.rooms) ? roomsPayload.rooms : [];
       const apiLessons = Array.isArray(lessonsPayload.lessons) ? lessonsPayload.lessons : [];
-      // On a new installation the room seed exists before the first course is
-      // created. Keep the usable demo occupancy visible instead of replacing it
-      // with an empty grid after the initial render.
-      const hasLiveLessons = apiLessons.length > 0;
-      const roomPlan = hasLiveLessons ? toPlannerRooms(apiRooms) : { rooms: demoRooms, locations: demoLocations };
-      const fetchedLessons = hasLiveLessons ? toPlannerLessons(apiLessons) : demoLessons.filter((lesson) => lesson.date === activeDay);
+      const roomPlan = toPlannerRooms(apiRooms);
+      const fetchedLessons = toPlannerLessons(apiLessons);
       setPlannerRooms(roomPlan.rooms);
       setPlannerLocations(roomPlan.locations);
       setLessons(fetchedLessons);
-      setNotice(hasLiveLessons
-        ? `${fetchedLessons.length} Lektion${fetchedLessons.length === 1 ? "" : "en"} geplant.`
-        : "Demo-Raumplan angezeigt – konkrete Lektionen erscheinen nach der Kurserfassung.");
+      setNotice(`${fetchedLessons.length} Lektion${fetchedLessons.length === 1 ? "" : "en"} geplant.`);
       setPlannerStatus("ready");
     } catch (error) {
       if (signal?.aborted) return;
@@ -252,23 +261,24 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
     return () => controller.abort();
   }, [loadRoomPlan]);
 
-  async function moveLesson(lessonId: string, roomId: string, startMinutes: number) {
+  async function moveLesson(lessonId: string, roomId: string, startMinutes: number, substitute?: Pick<PlannerTeacher, "id" | "name">) {
     const lesson = lessons.find((item) => item.id === lessonId);
     const targetRoom = plannerRooms.find((item) => item.id === roomId);
-    if (!lesson || !targetRoom) return;
+    if (!lesson || !targetRoom) return false;
+    const targetTeacherId = substitute?.id ?? lesson.teacherId;
 
     const endMinutes = startMinutes + lesson.durationMinutes;
     if (startMinutes < DAY_START || endMinutes > DAY_END) {
       setNotice("Die Lektion liegt ausserhalb der konfigurierten Tageszeit.");
-      return;
+      return false;
     }
     if (lesson.participantCount !== null && lesson.participantCount > targetRoom.capacity) {
       setNotice(`${targetRoom.name} ist mit ${targetRoom.capacity} Plätzen zu klein für diesen Kurs.`);
-      return;
+      return false;
     }
     if (lesson.standardLocationName === "Winterthur" && targetRoom.locationId !== lesson.standardLocationId) {
       setNotice("Winterthur-Kurse müssen am Standort Winterthur bleiben.");
-      return;
+      return false;
     }
 
     const otherLessons = lessonsForDay.filter((item) => item.id !== lesson.id && item.status !== "cancelled");
@@ -276,11 +286,11 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
       (item) => item.roomId === roomId && overlaps(startMinutes, endMinutes, item.startMinutes, item.startMinutes + item.durationMinutes),
     );
     const teacherConflict = otherLessons.some(
-      (item) => item.teacherId === lesson.teacherId && overlaps(startMinutes, endMinutes, item.startMinutes, item.startMinutes + item.durationMinutes),
+      (item) => item.teacherId === targetTeacherId && overlaps(startMinutes, endMinutes, item.startMinutes, item.startMinutes + item.durationMinutes),
     );
     if (roomConflict || teacherConflict) {
       setNotice(roomConflict ? "Dieser Raum ist zu dieser Zeit bereits belegt." : "Die Lehrperson ist zu dieser Zeit bereits eingeplant.");
-      return;
+      return false;
     }
 
     const hasBufferWarning = otherLessons.some((item) => {
@@ -289,33 +299,25 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
       const gap = startMinutes >= itemEnd ? startMinutes - itemEnd : item.startMinutes - endMinutes;
       return gap >= 0 && gap < BUFFER_MINUTES;
     });
-    if (hasBufferWarning && !window.confirm("Der 15-Minuten-Raumpuffer wird unterschritten. Trotzdem verschieben?")) return;
-
-    // Demo lessons use readable IDs instead of database UUIDs. They must still
-    // be movable in the preview; only real UUID-backed lessons are persisted.
-    if (!isUuid(lessonId) || !isUuid(roomId)) {
-      setLastMove({ lessonId, roomId: lesson.roomId, startMinutes: lesson.startMinutes });
-      setLessons((current) => current.map((item) => item.id === lessonId ? { ...item, roomId, startMinutes } : item));
-      setDraggingLessonId(null);
-      setNotice(`${lesson.courseCode} wurde im Demo-Raumplan verschoben.`);
-      return;
-    }
+    if (hasBufferWarning && !window.confirm("Der 15-Minuten-Raumpuffer wird unterschritten. Trotzdem verschieben?")) return false;
 
     try {
       const response = await fetch(`/api/lessons/${lessonId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ roomId, startsAt: new Date(`${activeDay}T${formatTime(startMinutes)}:00`).toISOString() }),
+        body: JSON.stringify({ roomId, startsAt: new Date(`${activeDay}T${formatTime(startMinutes)}:00`).toISOString(), ...(substitute ? { teacherId: substitute.id } : {}) }),
       });
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Lektion konnte nicht verschoben werden.");
       setLastMove({ lessonId, roomId: lesson.roomId, startMinutes: lesson.startMinutes });
-      setLessons((current) => current.map((item) => item.id === lessonId ? { ...item, roomId, startMinutes } : item));
+      setLessons((current) => current.map((item) => item.id === lessonId ? { ...item, roomId, startMinutes, teacherId: targetTeacherId, teacher: substitute?.name ?? item.teacher } : item));
       setDraggingLessonId(null);
       setNotice(`${lesson.courseCode} wurde nach ${roomLabel(roomId, plannerRooms, plannerLocations)} verschoben.`);
+      return true;
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Lektion konnte nicht verschoben werden.");
+      return false;
     }
   }
 
@@ -333,20 +335,18 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
     if (!lastMove) return;
     const movedLesson = lessons.find((lesson) => lesson.id === lastMove.lessonId);
     if (!movedLesson) return;
-    if (isUuid(lastMove.lessonId) && isUuid(lastMove.roomId)) {
-      try {
-        const response = await fetch(`/api/lessons/${lastMove.lessonId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({ roomId: lastMove.roomId, startsAt: new Date(`${activeDay}T${formatTime(lastMove.startMinutes)}:00`).toISOString() }),
-        });
-        const payload = await response.json() as { error?: string };
-        if (!response.ok) throw new Error(payload.error ?? "Die Rückgängigmachung konnte nicht gespeichert werden.");
-      } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Die Rückgängigmachung konnte nicht gespeichert werden.");
-        return;
-      }
+    try {
+      const response = await fetch(`/api/lessons/${lastMove.lessonId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ roomId: lastMove.roomId, startsAt: new Date(`${activeDay}T${formatTime(lastMove.startMinutes)}:00`).toISOString() }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Die Rückgängigmachung konnte nicht gespeichert werden.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Die Rückgängigmachung konnte nicht gespeichert werden.");
+      return;
     }
     setLessons((current) => current.map((lesson) => lesson.id === lastMove.lessonId ? { ...lesson, roomId: lastMove.roomId, startMinutes: lastMove.startMinutes } : lesson));
     setNotice(`${movedLesson.courseCode} wurde zurückverschoben.`);
@@ -420,7 +420,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
         : activeView === "teilnehmer" ? <PeopleWorkspace mode="participants" focusPersonId={focusParticipantId} onOpenCourse={(courseId) => { setFocusParticipantId(null); setFocusCourseId(courseId); setActiveView("kurse"); }} /> : activeView === "lehrpersonen" ? <PeopleWorkspace mode="teachers" onOpenCourse={(courseId) => { setFocusCourseId(courseId); setActiveView("kurse"); }} /> : activeView === "kurse" ? <CourseWorkspace initiallyOpen={courseOpenRequest > 0} focusCourseId={focusCourseId} onOpenParticipant={(participantId) => { setFocusCourseId(null); setFocusParticipantId(participantId); setActiveView("teilnehmer"); }} key={`${courseOpenRequest}-${focusCourseId ?? "all"}`} /> : activeView === "raeume" ? <RoomsWorkspace onOpenCourse={(courseId) => { setFocusCourseId(courseId); setActiveView("kurse"); }} /> : <BillingWorkspace />}
       </main>
 
-      {selectedLesson ? <LessonDialog lesson={selectedLesson} rooms={plannerRooms} locations={plannerLocations} onClose={() => setSelectedLessonId(null)} onCancel={async () => {
+      {selectedLesson ? <LessonDialog lesson={selectedLesson} rooms={plannerRooms} locations={plannerLocations} onClose={() => setSelectedLessonId(null)} onUpdate={(roomId, startMinutes, teacher) => moveLesson(selectedLesson.id, roomId, startMinutes, teacher)} onCancel={async () => {
         try {
           const response = await fetch(`/api/lessons/${selectedLesson.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ status: "cancelled" }) });
           const payload = await response.json() as { error?: string };
@@ -436,8 +436,44 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
   );
 }
 
-function LessonDialog({ lesson, rooms, locations, onClose, onCancel }: { lesson: PlannerLesson; rooms: PlannerRoom[]; locations: Location[]; onClose: () => void; onCancel: () => void | Promise<void> }) {
+function LessonDialog({ lesson, rooms, locations, onClose, onCancel, onUpdate }: { lesson: PlannerLesson; rooms: PlannerRoom[]; locations: Location[]; onClose: () => void; onCancel: () => void | Promise<void>; onUpdate: (roomId: string, startMinutes: number, teacher?: Pick<PlannerTeacher, "id" | "name">) => Promise<boolean> }) {
   const room = rooms.find((item) => item.id === lesson.roomId);
   const location = locations.find((item) => item.rooms.some((itemRoom) => itemRoom.id === lesson.roomId));
-  return <div className="dialog-backdrop" role="presentation" onMouseDown={onClose}><section className="lesson-dialog" aria-labelledby="lesson-dialog-title" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true"><button className="dialog-close" onClick={onClose} type="button" aria-label="Details schliessen">×</button><p className="eyebrow">Konkrete Lektion</p><h2 id="lesson-dialog-title">{lesson.courseCode}</h2><p className="dialog-course">{lesson.courseName}</p><dl><div><dt>Termin</dt><dd>{formatTime(lesson.startMinutes)}–{formatTime(lesson.startMinutes + lesson.durationMinutes)} Uhr</dd></div><div><dt>Raum</dt><dd>{location?.name} · {room?.name}</dd></div><div><dt>Lehrperson</dt><dd>{lesson.teacher}</dd></div><div><dt>Teilnehmende</dt><dd>{lesson.participantCount} aktiv</dd></div></dl><div className="dialog-note"><strong>Offene Aufgabe</strong><p>Nach der Lektion Anwesenheiten und Unterrichtsinhalte bestätigen.</p></div><div className="dialog-actions"><button className="danger-button" onClick={onCancel} type="button">Lektion absagen</button><button className="primary-button" onClick={onClose} type="button">Details bearbeiten</button></div></section></div>;
+  const [isEditing, setIsEditing] = useState(false);
+  const [teachers, setTeachers] = useState<PlannerTeacher[]>([]);
+  const [teachersError, setTeachersError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [roomId, setRoomId] = useState(lesson.roomId);
+  const [startTime, setStartTime] = useState(formatTime(lesson.startMinutes));
+  const [teacherId, setTeacherId] = useState(lesson.teacherId);
+
+  useEffect(() => {
+    if (!isEditing || teachers.length || teachersError) return;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const response = await fetch("/api/teachers", { credentials: "same-origin", signal: controller.signal });
+        const payload = await response.json() as { teachers?: PlannerTeacher[]; error?: string };
+        if (!response.ok) throw new Error(payload.error ?? "Lehrpersonen konnten nicht geladen werden.");
+        if (!controller.signal.aborted) setTeachers(payload.teachers ?? []);
+      } catch (error) {
+        if (!controller.signal.aborted) setTeachersError(error instanceof Error ? error.message : "Lehrpersonen konnten nicht geladen werden.");
+      }
+    })();
+    return () => controller.abort();
+  }, [isEditing, teachers.length, teachersError]);
+
+  const eligibleTeachers = teachers.filter((teacher) => teacher.active !== false && (teacher.id === lesson.teacherId || teacherCanTeach(teacher, lesson.language, lesson.level)));
+
+  async function saveEdit() {
+    const [hours, minutes] = startTime.split(":").map(Number);
+    if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return;
+    const teacher = eligibleTeachers.find((item) => item.id === teacherId);
+    setIsSaving(true);
+    const saved = await onUpdate(roomId, hours * 60 + minutes, teacher && teacher.id !== lesson.teacherId ? teacher : undefined);
+    setIsSaving(false);
+    if (saved) onClose();
+  }
+
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={onClose}><section className="lesson-dialog" aria-labelledby="lesson-dialog-title" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true"><button className="dialog-close" onClick={onClose} type="button" aria-label="Details schliessen">×</button><p className="eyebrow">Konkrete Lektion</p><h2 id="lesson-dialog-title">{lesson.courseCode}</h2><p className="dialog-course">{lesson.courseName}</p>{isEditing ? <><div className="form-grid"><label>Raum<select aria-label="Lektionsraum" disabled={isSaving} onChange={(event) => setRoomId(event.target.value)} value={roomId}>{rooms.map((item) => <option key={item.id} value={item.id}>{roomLabel(item.id, rooms, locations)}</option>)}</select></label><label>Startzeit<input aria-label="Lektionsstartzeit" disabled={isSaving} onChange={(event) => setStartTime(event.target.value)} required type="time" value={startTime} /></label><label className="form-grid__full">Vertretende Lehrperson<select aria-label="Vertretende Lehrperson" disabled={isSaving || !teachers.length} onChange={(event) => setTeacherId(event.target.value)} value={teacherId}><option value={lesson.teacherId}>{lesson.teacher} (Standard)</option>{eligibleTeachers.filter((teacher) => teacher.id !== lesson.teacherId).map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}</select></label></div>{teachersError ? <p className="planner-state" role="alert">{teachersError}</p> : null}<p className="form-hint">Nur Lehrpersonen mit passender Sprache und Niveaufreigabe stehen zur Auswahl. Die Dauer bleibt durch den Kurs vorgegeben.</p><div className="dialog-actions"><button className="quiet-button" disabled={isSaving} onClick={() => setIsEditing(false)} type="button">Zurück</button><button className="primary-button" disabled={isSaving || (!teachers.length && teacherId !== lesson.teacherId)} onClick={() => void saveEdit()} type="button">{isSaving ? "Wird gespeichert …" : "Änderung speichern"}</button></div></> : <><dl><div><dt>Termin</dt><dd>{formatTime(lesson.startMinutes)}–{formatTime(lesson.startMinutes + lesson.durationMinutes)} Uhr</dd></div><div><dt>Raum</dt><dd>{location?.name} · {room?.name}</dd></div><div><dt>Lehrperson</dt><dd>{lesson.teacher}</dd></div><div><dt>Teilnehmende</dt><dd>{lesson.participantCount} aktiv</dd></div></dl>{lesson.status === "scheduled" ? <><div className="dialog-note"><strong>Offene Aufgabe</strong><p>Nach der Lektion Anwesenheiten und Unterrichtsinhalte bestätigen.</p></div><div className="dialog-actions"><button className="danger-button" onClick={onCancel} type="button">Lektion absagen</button><button className="primary-button" onClick={() => setIsEditing(true)} type="button">Details bearbeiten</button></div></> : <div className="dialog-note"><strong>Abgesagt</strong><p>Diese Lektion kann nicht mehr bearbeitet werden.</p></div>}</>}</section></div>;
 }

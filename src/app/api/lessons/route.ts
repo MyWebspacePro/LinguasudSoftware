@@ -10,7 +10,6 @@ const createLessonSchema = z.object({
   roomId: z.uuid(),
   teacherId: z.uuid(),
   startsAt: z.coerce.date(),
-  durationMinutes: z.number().int().min(15).max(360).multipleOf(15),
 });
 
 function qualificationLevel(level: string) {
@@ -35,10 +34,18 @@ export async function POST(request: Request) {
     const actor = await requireRole("office");
     const input = createLessonSchema.parse(await request.json());
     const sql = db();
-    const endAt = new Date(input.startsAt.getTime() + input.durationMinutes * 60_000);
-    const [course] = await sql<{ id: string; language: string; level: string; standard_location_id: string | null; standard_location_name: string | null }[]>`SELECT c.id, c.language, c.level, standard_location.id AS standard_location_id, standard_location.name AS standard_location_name FROM courses c LEFT JOIN rooms standard_room ON standard_room.id = c.standard_room_id LEFT JOIN locations standard_location ON standard_location.id = standard_room.location_id WHERE c.id = ${input.courseId}`;
+    const [course] = await sql<{ id: string; language: string; level: string; duration_minutes: number; standard_location_id: string | null; standard_location_name: string | null }[]>`SELECT c.id, c.language, c.level, c.duration_minutes, standard_location.id AS standard_location_id, standard_location.name AS standard_location_name FROM courses c LEFT JOIN rooms standard_room ON standard_room.id = c.standard_room_id LEFT JOIN locations standard_location ON standard_location.id = standard_room.location_id WHERE c.id = ${input.courseId}`;
     if (!course) return NextResponse.json({ error: "Kurs wurde nicht gefunden." }, { status: 404 });
-    const [teacher] = await sql`SELECT id FROM users WHERE id = ${input.teacherId} AND role = 'teacher'`;
+    const endAt = new Date(input.startsAt.getTime() + Number(course.duration_minutes) * 60_000);
+    const [courseBreak] = await sql`
+      SELECT id
+      FROM course_breaks
+      WHERE course_id = ${input.courseId}
+        AND (${input.startsAt} AT TIME ZONE 'Europe/Zurich')::date BETWEEN starts_on AND ends_on
+      LIMIT 1
+    `;
+    if (courseBreak) return NextResponse.json({ error: "In einem Kursunterbruch kann keine Lektion geplant werden." }, { status: 409 });
+    const [teacher] = await sql`SELECT users.id FROM users LEFT JOIN teacher_profiles ON teacher_profiles.user_id = users.id WHERE users.id = ${input.teacherId} AND users.role = 'teacher' AND COALESCE(teacher_profiles.active, true) = true`;
     if (!teacher) return NextResponse.json({ error: "Lehrperson wurde nicht gefunden." }, { status: 404 });
     const [qualification] = await sql`SELECT 1 FROM teacher_teaching_levels WHERE teacher_id = ${input.teacherId} AND lower(language) = lower(${course.language}) AND level = ${qualificationLevel(course.level)} LIMIT 1`;
     if (!qualification) return NextResponse.json({ error: `Die Lehrperson ist für ${course.language} ${course.level} nicht qualifiziert.` }, { status: 409 });
@@ -56,7 +63,7 @@ export async function POST(request: Request) {
     `;
     if (conflicts.some((item) => item.room_id === input.roomId)) return NextResponse.json({ error: "Der Raum ist bereits belegt." }, { status: 409 });
     if (conflicts.length) return NextResponse.json({ error: "Die Lehrperson ist bereits eingeplant." }, { status: 409 });
-    const [lesson] = await sql`INSERT INTO lessons (id, course_id, room_id, teacher_id, starts_at, duration_minutes, status) VALUES (${randomUUID()}, ${input.courseId}, ${input.roomId}, ${input.teacherId}, ${input.startsAt}, ${input.durationMinutes}, 'scheduled') RETURNING *`;
+    const [lesson] = await sql`INSERT INTO lessons (id, course_id, room_id, teacher_id, starts_at, duration_minutes, status) VALUES (${randomUUID()}, ${input.courseId}, ${input.roomId}, ${input.teacherId}, ${input.startsAt}, ${course.duration_minutes}, 'scheduled') RETURNING *`;
     await sql`INSERT INTO change_history (id, entity_type, entity_id, event_type, summary, after_data, actor_id) VALUES (${randomUUID()}, 'lesson', ${lesson.id}, 'created', 'Lektion angelegt', ${JSON.stringify(lesson)}, ${actor.id})`;
     return NextResponse.json({ lesson }, { status: 201 });
   } catch (error) {

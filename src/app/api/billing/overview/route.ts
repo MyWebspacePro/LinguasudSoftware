@@ -24,6 +24,7 @@ export async function GET() {
         courses.standard_room_id,
         count(attendance.id) FILTER (
           WHERE attendance.status IN ('present', 'unexcused', 'online')
+            AND lessons.status = 'completed'
         )::int AS consumed_lessons,
         count(attendance.id) FILTER (
           WHERE attendance.status IN ('present', 'unexcused', 'online')

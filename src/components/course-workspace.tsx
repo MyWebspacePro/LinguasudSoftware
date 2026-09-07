@@ -5,12 +5,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { COURSE_LEVELS } from "@/lib/course-levels";
 
 type Course = { id: string; code: string; language: string; level: string; duration_minutes: number; status: string; teacher_name: string };
-type Teacher = { id: string; name: string; teaching_levels?: Array<{ language: string; levels: string[] }> };
+type Teacher = { id: string; name: string; active?: boolean; teaching_levels?: Array<{ language: string; levels: string[] }> };
 type Room = { id: string; name: string; location_name: string };
 type CourseSchedule = { id: string; course_id: string; weekday: number; start_time: string; duration_minutes: number };
 type CourseParticipant = { id: string; course_id: string; participant_id: string; participant_name: string; participant_email: string; active: boolean };
 type WeeklySlot = { weekday: number; startTime: string };
 type ScheduleDraft = { weekday: number; startTime: string };
+type CourseBreak = { id: string; course_id: string; starts_on: string; ends_on: string; reason: string | null };
 
 const weekdays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
 
@@ -28,6 +29,10 @@ function teacherCanTeach(teacher: Teacher, language: string, level: string) {
   return (teacher.teaching_levels ?? []).some((entry) => entry.language.trim().toLocaleLowerCase() === requestedLanguage && entry.levels.includes(requestedLevel));
 }
 
+function CourseBreakPanel({ breaks, draft, isSaving, onDraftChange, onCreate, onDelete }: { breaks: CourseBreak[]; draft: { startsOn: string; endsOn: string; reason: string }; isSaving: boolean; onDraftChange: (changes: Partial<{ startsOn: string; endsOn: string; reason: string }>) => void; onCreate: () => void; onDelete: (courseBreak: CourseBreak) => void }) {
+  return <section className="attendance-dialog" aria-labelledby="course-breaks-title"><h2 id="course-breaks-title">Kursunterbruch</h2><p>Ferien oder Ausfälle betreffen nur die Lektionen im gewählten Zeitraum.</p><div className="form-grid"><label>Von<input aria-label="Unterbruch von" disabled={isSaving} onChange={(event) => onDraftChange({ startsOn: event.target.value })} required type="date" value={draft.startsOn} /></label><label>Bis<input aria-label="Unterbruch bis" disabled={isSaving} onChange={(event) => onDraftChange({ endsOn: event.target.value })} required type="date" value={draft.endsOn} /></label><label className="form-grid__full">Grund (optional)<input aria-label="Grund des Unterbruchs" disabled={isSaving} onChange={(event) => onDraftChange({ reason: event.target.value })} placeholder="z. B. Ferien Lehrperson" value={draft.reason} /></label></div><div className="dialog-actions"><button className="primary-button" disabled={isSaving || !draft.startsOn || !draft.endsOn} onClick={onCreate} type="button">Unterbruch erfassen</button></div>{breaks.length ? <div className="course-break-list">{breaks.map((courseBreak) => <div key={courseBreak.id}><span>{courseBreak.starts_on}–{courseBreak.ends_on}{courseBreak.reason ? ` · ${courseBreak.reason}` : ""}</span><button className="quiet-button" disabled={isSaving} onClick={() => onDelete(courseBreak)} type="button">Unterbruch entfernen</button></div>)}</div> : <p className="form-hint">Keine Kursunterbrüche erfasst.</p>}</section>;
+}
+
 export function CourseWorkspace({ initiallyOpen = false, focusCourseId = null, onOpenParticipant }: { initiallyOpen?: boolean; focusCourseId?: string | null; onOpenParticipant?: (participantId: string) => void }) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -39,6 +44,8 @@ export function CourseWorkspace({ initiallyOpen = false, focusCourseId = null, o
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [scheduleEdits, setScheduleEdits] = useState<Record<string, ScheduleDraft>>({});
   const [newSchedule, setNewSchedule] = useState<ScheduleDraft>({ weekday: 0, startTime: "18:00" });
+  const [courseBreaks, setCourseBreaks] = useState<CourseBreak[]>([]);
+  const [newBreak, setNewBreak] = useState({ startsOn: new Date().toISOString().slice(0, 10), endsOn: new Date().toISOString().slice(0, 10), reason: "" });
   const [newCourseLanguage, setNewCourseLanguage] = useState("");
   const [newCourseLevel, setNewCourseLevel] = useState("A1");
   const [isOpen, setIsOpen] = useState(initiallyOpen);
@@ -80,7 +87,7 @@ export function CourseWorkspace({ initiallyOpen = false, focusCourseId = null, o
     return map;
   }, [schedules]);
   const qualifiedTeachers = useMemo(
-    () => teachers.filter((teacher) => teacherCanTeach(teacher, newCourseLanguage, newCourseLevel)),
+    () => teachers.filter((teacher) => teacher.active !== false && teacherCanTeach(teacher, newCourseLanguage, newCourseLevel)),
     [newCourseLanguage, newCourseLevel, teachers],
   );
 
@@ -122,6 +129,18 @@ export function CourseWorkspace({ initiallyOpen = false, focusCourseId = null, o
     }
   }, []);
 
+  const loadCourseBreaks = useCallback(async (courseId: string) => {
+    try {
+      const response = await fetch(`/api/courses/${courseId}/breaks`, { credentials: "same-origin" });
+      const payload = await response.json() as { breaks?: CourseBreak[]; error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Kursunterbrüche konnten nicht geladen werden.");
+      setCourseBreaks(payload.breaks ?? []);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Kursunterbrüche konnten nicht geladen werden.");
+      setCourseBreaks([]);
+    }
+  }, []);
+
   const openEditor = useCallback((course: Course) => {
     const occupiedWeekdays = new Set((schedulesByCourse.get(course.id) ?? []).map((schedule) => schedule.weekday));
     const firstAvailableWeekday = weekdays.findIndex((_, weekday) => !occupiedWeekdays.has(weekday));
@@ -132,7 +151,8 @@ export function CourseWorkspace({ initiallyOpen = false, focusCourseId = null, o
       startTime: "18:00",
     });
     void loadCourseParticipants(course.id);
-  }, [loadCourseParticipants, schedulesByCourse]);
+    void loadCourseBreaks(course.id);
+  }, [loadCourseBreaks, loadCourseParticipants, schedulesByCourse]);
 
   useEffect(() => {
     if (!focusCourseId) return;
@@ -165,6 +185,7 @@ export function CourseWorkspace({ initiallyOpen = false, focusCourseId = null, o
   function closeEditor() {
     setEditingCourse(null);
     setScheduleEdits({});
+    setCourseBreaks([]);
   }
 
   async function createCourse(formData: FormData) {
@@ -287,12 +308,44 @@ export function CourseWorkspace({ initiallyOpen = false, focusCourseId = null, o
     }
   }
 
+  async function addCourseBreak() {
+    if (!editingCourse) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/courses/${editingCourse.id}/breaks`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newBreak) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(getError(payload, "Kursunterbruch konnte nicht gespeichert werden."));
+      await loadCourseBreaks(editingCourse.id);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Kursunterbruch konnte nicht gespeichert werden.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function deleteCourseBreak(courseBreak: CourseBreak) {
+    if (!editingCourse) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/courses/${editingCourse.id}/breaks`, { method: "DELETE", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ breakId: courseBreak.id }) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(getError(payload, "Kursunterbruch konnte nicht entfernt werden."));
+      setCourseBreaks((current) => current.filter((item) => item.id !== courseBreak.id));
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Kursunterbruch konnte nicht entfernt werden.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return <section className="management-preview" aria-labelledby="courses-title">
     <div className="preview-intro"><p className="eyebrow">Kursverwaltung</p><h2 id="courses-title">Kurse <span>{courses.length}</span></h2><p>Standardlehrperson, Raum, Niveau und Dauer werden zentral durch das Büro gepflegt.</p><button className="primary-button" onClick={openCreateDialog} type="button">+ Kurs anlegen</button></div>
     {error ? <p className="planner-state" role="alert">{error}</p> : null}
     {isLoading ? <p className="planner-state">Kurse werden geladen …</p> : <div className="preview-grid">{courses.length === 0 ? <p className="planner-state">Noch keine Kurse angelegt.</p> : courses.map((course) => <article key={course.id}><span>{course.status}</span><h3>{course.code}</h3><p>{course.language} {course.level} · {course.teacher_name}</p><p>{course.duration_minutes} Minuten</p><p className="course-schedule-summary">{(schedulesByCourse.get(course.id) ?? []).map((schedule) => `${weekdays[schedule.weekday]} ${String(schedule.start_time).slice(0, 5)}`).join(" · ") || "Noch keine Termine"}</p><button className="quiet-button" onClick={() => openEditor(course)} type="button">Kurs bearbeiten</button></article>)}</div>}
     {isOpen ? <div className="dialog-backdrop" role="presentation"><form action={createCourse} className="attendance-dialog" aria-labelledby="create-course-title"><button aria-label="Kursformular schliessen" className="dialog-close" onClick={() => setIsOpen(false)} type="button">×</button><p className="eyebrow">Büro</p><h2 id="create-course-title">Neuer Kurs</h2><div className="form-grid"><label>Kurskennung<input name="code" required pattern="[A-Z0-9]+" placeholder="MARKELDEA201" /></label><label>Sprache<input name="language" onChange={(event) => setNewCourseLanguage(event.target.value)} required placeholder="Deutsch" value={newCourseLanguage} /></label><label>Niveau<select name="level" onChange={(event) => setNewCourseLevel(event.target.value)} value={newCourseLevel}>{COURSE_LEVELS.map((level) => <option key={level}>{level}</option>)}</select></label><label>Lehrperson<select name="teacherId" required defaultValue=""><option disabled value="">{newCourseLanguage ? qualifiedTeachers.length > 0 ? "Bitte wählen" : "Keine passende Qualifikation" : "Zuerst Sprache wählen"}</option>{qualifiedTeachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}</select></label><label>Startdatum<input defaultValue={new Date().toISOString().slice(0, 10)} name="startsOn" required type="date" /></label><label>Standardraum<select name="roomId" required defaultValue=""><option disabled value="">Bitte wählen</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.location_name} · {room.name}</option>)}</select></label><label>Dauer<select name="durationMinutes" defaultValue="90">{[45, 60, 75, 90, 120, 150, 180].map((minutes) => <option key={minutes} value={minutes}>{minutes} Minuten</option>)}</select></label></div>{newCourseLanguage && qualifiedTeachers.length === 0 ? <p className="form-hint" role="status">Für {newCourseLanguage} {newCourseLevel} ist keine Lehrperson mit passender Niveaufreigabe hinterlegt.</p> : null}<fieldset className="weekly-schedule"><legend>Wöchentliche Termine</legend><p>Wähle die Unterrichtstage. Für jeden Tag kann eine eigene Startzeit hinterlegt werden.</p><div className="weekday-buttons">{weekdays.map((weekday, index) => <button aria-pressed={weeklySlots.some((slot) => slot.weekday === index)} className={weeklySlots.some((slot) => slot.weekday === index) ? "is-selected" : ""} key={weekday} onClick={() => toggleWeekday(index)} type="button">{weekday.slice(0, 2)}</button>)}</div>{weeklySlots.map((slot) => <label className="weekly-time" key={slot.weekday}>{weekdays[slot.weekday]}<input aria-label={`${weekdays[slot.weekday]} Startzeit`} onChange={(event) => setSlotTime(slot.weekday, event.target.value)} required type="time" value={slot.startTime} /></label>)}</fieldset><div className="dialog-actions"><button className="quiet-button" onClick={() => setIsOpen(false)} type="button">Abbrechen</button><button className="primary-button" disabled={isSaving || weeklySlots.length === 0 || qualifiedTeachers.length === 0} type="submit">{isSaving ? "Wird gespeichert …" : "Kurs speichern"}</button></div></form></div> : null}
-    {editingCourse ? <div className="dialog-backdrop" role="presentation"><form action={updateCourse} className="attendance-dialog" aria-labelledby="edit-course-title"><button aria-label="Kursbearbeitung schliessen" className="dialog-close" onClick={closeEditor} type="button">×</button><p className="eyebrow">Kursverwaltung</p><h2 id="edit-course-title">{editingCourse.code} bearbeiten</h2><div className="form-grid"><label>Kurskennung bearbeiten<input defaultValue={editingCourse.code} name="code" pattern="[A-Z0-9]+" required /></label><label>Niveau bearbeiten<select defaultValue={editingCourse.level} name="level">{COURSE_LEVELS.map((level) => <option key={level}>{level}</option>)}</select></label><label>Kursdauer<select aria-label="Kursdauer" defaultValue={editingCourse.duration_minutes} name="durationMinutes">{[45, 60, 75, 90, 120, 150, 180].map((minutes) => <option key={minutes} value={minutes}>{minutes} Minuten</option>)}</select></label><label>Kursstatus<select aria-label="Kursstatus" defaultValue={editingCourse.status} name="status"><option value="planned">Geplant</option><option value="active">Laufend</option><option value="paused">Pausiert</option><option value="completed">Abgeschlossen</option><option value="cancelled">Abgesagt</option></select></label></div><div className="dialog-actions"><button className="quiet-button" onClick={closeEditor} type="button">Abbrechen</button><button className="primary-button" disabled={isSaving} type="submit">{isSaving ? "Wird gespeichert …" : "Kursdaten speichern"}</button></div></form><section className="attendance-dialog" aria-labelledby="course-schedule-title"><h2 id="course-schedule-title">Wöchentliche Termine</h2><p>Die Kursdauer ist verbindlich; pro Tag wird nur die Startzeit gepflegt.</p>{(schedulesByCourse.get(editingCourse.id) ?? []).map((schedule) => { const draft = scheduleDraft(schedule); return <fieldset className="weekly-schedule" key={schedule.id}><legend>{weekdays[draft.weekday]}</legend><div className="form-grid"><label>Wochentag<select aria-label={`${schedule.id} Wochentag`} disabled={isSaving} onChange={(event) => updateScheduleDraft(schedule.id, { weekday: Number(event.target.value) })} value={draft.weekday}>{weekdays.map((weekdayName, weekdayIndex) => <option key={weekdayName} value={weekdayIndex}>{weekdayName}</option>)}</select></label><label>Startzeit<input aria-label={`${schedule.id} Startzeit`} disabled={isSaving} onChange={(event) => updateScheduleDraft(schedule.id, { startTime: event.target.value })} required type="time" value={draft.startTime} /></label><label>Dauer<input aria-label={`${schedule.id} Dauer`} disabled readOnly value={`${editingCourse.duration_minutes} Minuten`} /></label></div><div className="dialog-actions"><button className="quiet-button" disabled={isSaving} onClick={() => void deleteSchedule(schedule)} type="button">Termin löschen</button><button className="primary-button" disabled={isSaving} onClick={() => void saveSchedule(schedule)} type="button">Termin speichern</button></div></fieldset>; })}<fieldset className="weekly-schedule"><legend>Termin hinzufügen</legend><div className="form-grid"><label>Wochentag<select aria-label="Neuer Termin Wochentag" disabled={isSaving} onChange={(event) => setNewSchedule((current) => ({ ...current, weekday: Number(event.target.value) }))} value={newSchedule.weekday}>{weekdays.map((weekdayName, weekdayIndex) => <option key={weekdayName} value={weekdayIndex}>{weekdayName}</option>)}</select></label><label>Startzeit<input aria-label="Neue Startzeit" disabled={isSaving} onChange={(event) => setNewSchedule((current) => ({ ...current, startTime: event.target.value }))} required type="time" value={newSchedule.startTime} /></label><label>Dauer<input aria-label="Neue Dauer" disabled readOnly value={`${editingCourse.duration_minutes} Minuten`} /></label></div><div className="dialog-actions"><button className="primary-button" disabled={isSaving} onClick={() => void addSchedule()} type="button">Termin hinzufügen</button></div></fieldset></section></div> : null}
+    {editingCourse ? <div className="dialog-backdrop" role="presentation"><form action={updateCourse} className="attendance-dialog" aria-labelledby="edit-course-title"><button aria-label="Kursbearbeitung schliessen" className="dialog-close" onClick={closeEditor} type="button">×</button><p className="eyebrow">Kursverwaltung</p><h2 id="edit-course-title">{editingCourse.code} bearbeiten</h2><div className="form-grid"><label>Kurskennung bearbeiten<input defaultValue={editingCourse.code} name="code" pattern="[A-Z0-9]+" required /></label><label>Niveau bearbeiten<select defaultValue={editingCourse.level} name="level">{COURSE_LEVELS.map((level) => <option key={level}>{level}</option>)}</select></label><label>Kursdauer<select aria-label="Kursdauer" defaultValue={editingCourse.duration_minutes} name="durationMinutes">{[45, 60, 75, 90, 120, 150, 180].map((minutes) => <option key={minutes} value={minutes}>{minutes} Minuten</option>)}</select></label><label>Kursstatus<select aria-label="Kursstatus" defaultValue={editingCourse.status} name="status"><option value="planned">Geplant</option><option value="active">Laufend</option><option value="paused">Pausiert</option><option value="completed">Abgeschlossen</option><option value="cancelled">Abgesagt</option></select></label></div><div className="dialog-actions"><button className="quiet-button" onClick={closeEditor} type="button">Abbrechen</button><button className="primary-button" disabled={isSaving} type="submit">{isSaving ? "Wird gespeichert …" : "Kursdaten speichern"}</button></div></form><section className="attendance-dialog" aria-labelledby="course-schedule-title"><h2 id="course-schedule-title">Wöchentliche Termine</h2><p>Die Kursdauer ist verbindlich; pro Tag wird nur die Startzeit gepflegt.</p>{(schedulesByCourse.get(editingCourse.id) ?? []).map((schedule) => { const draft = scheduleDraft(schedule); return <fieldset className="weekly-schedule" key={schedule.id}><legend>{weekdays[draft.weekday]}</legend><div className="form-grid"><label>Wochentag<select aria-label={`${schedule.id} Wochentag`} disabled={isSaving} onChange={(event) => updateScheduleDraft(schedule.id, { weekday: Number(event.target.value) })} value={draft.weekday}>{weekdays.map((weekdayName, weekdayIndex) => <option key={weekdayName} value={weekdayIndex}>{weekdayName}</option>)}</select></label><label>Startzeit<input aria-label={`${schedule.id} Startzeit`} disabled={isSaving} onChange={(event) => updateScheduleDraft(schedule.id, { startTime: event.target.value })} required type="time" value={draft.startTime} /></label><label>Dauer<input aria-label={`${schedule.id} Dauer`} disabled readOnly value={`${editingCourse.duration_minutes} Minuten`} /></label></div><div className="dialog-actions"><button className="quiet-button" disabled={isSaving} onClick={() => void deleteSchedule(schedule)} type="button">Termin löschen</button><button className="primary-button" disabled={isSaving} onClick={() => void saveSchedule(schedule)} type="button">Termin speichern</button></div></fieldset>; })}<fieldset className="weekly-schedule"><legend>Termin hinzufügen</legend><div className="form-grid"><label>Wochentag<select aria-label="Neuer Termin Wochentag" disabled={isSaving} onChange={(event) => setNewSchedule((current) => ({ ...current, weekday: Number(event.target.value) }))} value={newSchedule.weekday}>{weekdays.map((weekdayName, weekdayIndex) => <option key={weekdayName} value={weekdayIndex}>{weekdayName}</option>)}</select></label><label>Startzeit<input aria-label="Neue Startzeit" disabled={isSaving} onChange={(event) => setNewSchedule((current) => ({ ...current, startTime: event.target.value }))} required type="time" value={newSchedule.startTime} /></label><label>Dauer<input aria-label="Neue Dauer" disabled readOnly value={`${editingCourse.duration_minutes} Minuten`} /></label></div><div className="dialog-actions"><button className="primary-button" disabled={isSaving} onClick={() => void addSchedule()} type="button">Termin hinzufügen</button></div></fieldset></section><CourseBreakPanel breaks={courseBreaks} draft={newBreak} isSaving={isSaving} onCreate={() => void addCourseBreak()} onDelete={(courseBreak) => void deleteCourseBreak(courseBreak)} onDraftChange={(changes) => setNewBreak((current) => ({ ...current, ...changes }))} /></div> : null}
     {editingCourse ? <section className="course-participants-floating" aria-labelledby="course-participants-title">
       <div className="course-participants-heading"><div><p className="eyebrow">Kursbelegung</p><h2 id="course-participants-title">Teilnehmende in {editingCourse.code}</h2></div><button aria-label="Teilnehmerliste schliessen" className="dialog-close" onClick={closeEditor} type="button">×</button></div>
       {isLoadingParticipants ? <p className="planner-state">Teilnehmende werden geladen …</p> : null}

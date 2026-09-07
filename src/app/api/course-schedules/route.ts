@@ -34,6 +34,21 @@ async function createLessonsForSchedule(transaction: postgres.TransactionSql, co
     const lessonDate = new Date(firstDate);
     lessonDate.setUTCDate(firstDate.getUTCDate() + week * 7);
     const localStart = `${isoDate(lessonDate)} ${schedule.startTime}`;
+    const [courseBreak] = await transaction<{ reason: string | null }[]>`
+      SELECT reason
+      FROM course_breaks
+      WHERE course_id = ${course.id}
+        AND ${isoDate(lessonDate)}::date BETWEEN starts_on AND ends_on
+      LIMIT 1
+    `;
+    if (courseBreak) {
+      const reason = courseBreak.reason ? `Kursunterbruch: ${courseBreak.reason}` : "Kursunterbruch";
+      await transaction`
+        INSERT INTO lessons (id, course_id, room_id, teacher_id, starts_at, duration_minutes, status, cancellation_reason)
+        VALUES (${randomUUID()}, ${course.id}, ${course.standard_room_id}, ${course.teacher_id}, (${localStart}::timestamp AT TIME ZONE 'Europe/Zurich'), ${course.duration_minutes}, 'cancelled', ${reason})
+      `;
+      continue;
+    }
     const [conflict] = await transaction<{ id: string }[]>`
       SELECT id FROM lessons
       WHERE status = 'scheduled'
