@@ -5,5 +5,5 @@ import { redirect } from "next/navigation";
 export default async function Home() {
   const user = await currentUser();
   if (!user) redirect("/login");
-  return <LinguasudDashboard />;
+  return <LinguasudDashboard user={user} />;
 }

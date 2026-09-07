@@ -33,6 +33,7 @@ type Move = { lessonId: string; roomId: string; startMinutes: number };
 type PlannerStatus = "loading" | "ready" | "error";
 type PlannerLesson = Omit<DemoLesson, "participantCount"> & { participantCount: number | null };
 type PlannerRoom = Room;
+type DashboardUser = { name: string; role: UserRole };
 
 type ApiRoom = {
   id: string;
@@ -132,10 +133,10 @@ function toPlannerLessons(apiLessons: ApiLesson[]): PlannerLesson[] {
   });
 }
 
-export function LinguasudDashboard() {
+export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "office" } }: { user?: DashboardUser }) {
   const [activeView, setActiveView] = useState<View>("raumplan");
   const [activeDay, setActiveDay] = useState(dayOptions[0].value);
-  const [activeRole, setActiveRole] = useState<UserRole>("office");
+  const activeRole = user.role;
   const [lessons, setLessons] = useState<PlannerLesson[]>(demoLessons);
   const [plannerRooms, setPlannerRooms] = useState<PlannerRoom[]>(demoRooms);
   const [plannerLocations, setPlannerLocations] = useState<Location[]>(demoLocations);
@@ -275,7 +276,7 @@ export function LinguasudDashboard() {
           <span className="brand__mark">L</span>
           <span>Linguasud<small>Verwaltung</small></span>
         </a>
-        <nav aria-label="Hauptnavigation">
+        {activeRole === "office" ? <nav aria-label="Hauptnavigation">
           <p className="nav-label">Organisation</p>
           {navigation.map(([view, label]) => (
             <button className={`nav-item ${activeView === view ? "nav-item--active" : ""}`} key={view} onClick={() => setActiveView(view)} type="button">
@@ -285,17 +286,9 @@ export function LinguasudDashboard() {
           <p className="nav-label nav-label--lower">Arbeitsbereich</p>
           <button className="nav-item" type="button" onClick={() => setNotice("Offene Anwesenheiten werden nach dem Unterricht angezeigt.")}>✓ Anwesenheiten <b>3</b></button>
           <button className="nav-item" type="button" onClick={() => setNotice("Alle Kursunterbrüche werden vom Büro koordiniert.")}>◷ Unterbrüche</button>
-        </nav>
+        </nav> : <nav aria-label="Hauptnavigation"><p className="nav-label">Mein Bereich</p><button className="nav-item nav-item--active" type="button">{activeRole === "teacher" ? "◫ Mein Unterricht" : "◉ Mein Kurs"}</button></nav>}
         <div className="sidebar__bottom">
-          <p>Ansicht simulieren</p>
-          <div className="role-switch" aria-label="Rollenansicht">
-            {(["office", "teacher", "participant"] as UserRole[]).map((role) => (
-              <button className={activeRole === role ? "is-active" : ""} onClick={() => setActiveRole(role)} key={role} type="button">
-                {role === "office" ? "Büro" : role === "teacher" ? "Lehrperson" : "Teilnehmer"}
-              </button>
-            ))}
-          </div>
-          <div className="profile"><span>AS</span><div><strong>Anna Steiner</strong><small>{activeRole === "office" ? "Büro" : activeRole === "teacher" ? "Lehrperson" : "Teilnehmerin"}</small></div></div>
+          <div className="profile"><span>{user.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</span><div><strong>{user.name}</strong><small>{activeRole === "office" ? "Büro" : activeRole === "teacher" ? "Lehrperson" : "Teilnehmer:in"}</small></div></div>
         </div>
       </aside>
 
