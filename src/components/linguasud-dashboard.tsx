@@ -14,6 +14,7 @@ import {
 } from "@/lib/linguasud-demo";
 import { RoleWorkspace } from "@/components/role-workspaces";
 import { CourseWorkspace } from "@/components/course-workspace";
+import { PeopleWorkspace } from "@/components/people-workspace";
 
 const DAY_START = 6 * 60;
 const DAY_END = 22 * 60 + 30;
@@ -357,7 +358,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
               </div>
             </div>
           </section>
-        ) : activeView === "kurse" ? <CourseWorkspace initiallyOpen={courseOpenRequest > 0} key={courseOpenRequest} /> : <ManagementPreview view={activeView} onAction={setNotice} />}
+        ) : activeView === "kurse" ? <CourseWorkspace initiallyOpen={courseOpenRequest > 0} key={courseOpenRequest} /> : activeView === "teilnehmende" ? <PeopleWorkspace /> : <ManagementPreview view={activeView} onAction={setNotice} />}
       </main>
 
       {selectedLesson ? <LessonDialog lesson={selectedLesson} rooms={plannerRooms} locations={plannerLocations} onClose={() => setSelectedLessonId(null)} onCancel={async () => {

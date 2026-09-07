@@ -421,6 +421,10 @@ button {
 .preview-grid h3 { margin: 42px 0 22px; font-size: 1rem; line-height: 1.28; }
 .preview-grid button { padding: 0; border: 0; background: transparent; color: var(--teal); cursor: pointer; font-size: 0.78rem; font-weight: 800; }
 .preview-intro .primary-button { margin-top: 12px; }
+.workspace-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.workspace-actions .quiet-button { margin-top: 12px; }
+.people-summary { display: flex; gap: 8px; margin: -16px 0 18px; }
+.people-summary span { padding: 6px 8px; border-radius: 99px; background: #e6f1ec; color: var(--teal-deep); font-size: 0.7rem; font-weight: 800; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; margin-top: 22px; }
 .form-grid label { display: grid; gap: 5px; color: var(--ink-soft); font-size: 0.73rem; font-weight: 750; }
 .form-grid input, .form-grid select { width: 100%; padding: 9px; border: 1px solid var(--border); border-radius: 6px; background: white; color: var(--ink); font: inherit; font-size: 0.82rem; }
