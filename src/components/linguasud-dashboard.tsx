@@ -198,7 +198,7 @@ export function LinguasudDashboard() {
     return () => controller.abort();
   }, [loadRoomPlan]);
 
-  function moveLesson(lessonId: string, roomId: string, startMinutes: number) {
+  async function moveLesson(lessonId: string, roomId: string, startMinutes: number) {
     const lesson = lessons.find((item) => item.id === lessonId);
     const targetRoom = plannerRooms.find((item) => item.id === roomId);
     if (!lesson || !targetRoom) return;
@@ -233,9 +233,21 @@ export function LinguasudDashboard() {
     });
     if (hasBufferWarning && !window.confirm("Der 15-Minuten-Raumpuffer wird unterschritten. Trotzdem verschieben?")) return;
 
-    setLastMove({ lessonId, roomId: lesson.roomId, startMinutes: lesson.startMinutes });
-    setLessons((current) => current.map((item) => item.id === lessonId ? { ...item, roomId, startMinutes } : item));
-    setNotice(`${lesson.courseCode} wurde nach ${roomLabel(roomId, plannerRooms, plannerLocations)} verschoben.`);
+    try {
+      const response = await fetch(`/api/lessons/${lessonId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ roomId, startsAt: new Date(`${activeDay}T${formatTime(startMinutes)}:00`).toISOString() }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Lektion konnte nicht verschoben werden.");
+      setLastMove({ lessonId, roomId: lesson.roomId, startMinutes: lesson.startMinutes });
+      setLessons((current) => current.map((item) => item.id === lessonId ? { ...item, roomId, startMinutes } : item));
+      setNotice(`${lesson.courseCode} wurde nach ${roomLabel(roomId, plannerRooms, plannerLocations)} verschoben.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Lektion konnte nicht verschoben werden.");
+    }
   }
 
   function onRoomDrop(event: DragEvent<HTMLDivElement>, roomId: string) {
@@ -244,7 +256,7 @@ export function LinguasudDashboard() {
     const bounds = event.currentTarget.getBoundingClientRect();
     const rawSlot = Math.floor((event.clientY - bounds.top) / SLOT_HEIGHT);
     const slot = Math.max(0, Math.min(slots.length - 1, rawSlot));
-    moveLesson(lessonId, roomId, DAY_START + slot * SLOT_MINUTES);
+    void moveLesson(lessonId, roomId, DAY_START + slot * SLOT_MINUTES);
   }
 
   function undoLastMove() {
