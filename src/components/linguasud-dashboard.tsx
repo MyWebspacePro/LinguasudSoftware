@@ -53,6 +53,7 @@ type ApiLesson = {
   teacher_name: string;
   starts_at: string;
   duration_minutes: number | string;
+  participant_count: number | string;
   status: PlannerLesson["status"];
 };
 
@@ -121,7 +122,7 @@ function toPlannerLessons(apiLessons: ApiLesson[]): PlannerLesson[] {
       courseName: `${lesson.language} ${lesson.level}`,
       language: lesson.language,
       level: lesson.level,
-      participantCount: null,
+      participantCount: Number(lesson.participant_count),
       teacher: lesson.teacher_name,
       teacherId: lesson.teacher_id,
       roomId: lesson.room_id,
