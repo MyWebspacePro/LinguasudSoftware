@@ -7,6 +7,7 @@ import { db } from "@/lib/database";
 
 const attendanceStatusSchema = z.enum([
   "present",
+  "excused_pending",
   "excused",
   "unexcused",
   "trial",
@@ -123,6 +124,18 @@ async function upsertAttendance(request: Request) {
     }
 
     const sql = db();
+    const finalExcusedIds = input.entries.filter((entry) => entry.status === "excused").map((entry) => entry.enrollmentId);
+    if (user.role === "teacher" && finalExcusedIds.length) {
+      const existingFinalExcuses = await sql<{ enrollment_id: string }[]>`
+        SELECT enrollment_id FROM attendance
+        WHERE lesson_id = ${lesson.id}
+          AND status = 'excused'
+          AND enrollment_id = ANY(${finalExcusedIds}::uuid[])
+      `;
+      if (existingFinalExcuses.length !== finalExcusedIds.length) {
+        return NextResponse.json({ error: "Entschuldigungen werden durch das Büro bestätigt. Bitte «Entschuldigung gemeldet» wählen." }, { status: 403 });
+      }
+    }
     const enrollmentIds = input.entries.map((entry) => entry.enrollmentId);
     const validEnrollments = await sql<{ id: string }[]>`
       SELECT id FROM enrollments
@@ -161,6 +174,43 @@ async function upsertAttendance(request: Request) {
           INSERT INTO change_history (id, entity_type, entity_id, event_type, summary, after_data, actor_id)
           VALUES (${randomUUID()}, 'lesson', ${lesson.id}, 'completed', 'Anwesenheit bestätigt und Lektion abgeschlossen', ${JSON.stringify({ status: 'completed' })}, ${user.id})
         `;
+      }
+      if (user.role === "teacher" && saved.some((entry) => entry.status === "excused_pending")) {
+        const [openReviewTask] = await transaction`
+          SELECT id FROM office_tasks
+          WHERE task_type = 'attendance_excuse_review'
+            AND entity_type = 'lesson'
+            AND entity_id = ${lesson.id}
+            AND status = 'open'
+          LIMIT 1
+        `;
+        if (!openReviewTask) {
+          const reviewHistoryId = randomUUID();
+          const pendingCount = saved.filter((entry) => entry.status === "excused_pending").length;
+          await transaction`
+            INSERT INTO change_history (id, entity_type, entity_id, event_type, summary, after_data, actor_id)
+            VALUES (${reviewHistoryId}, 'lesson', ${lesson.id}, 'attendance_excuse_review_needed', ${`${pendingCount} gemeldete Entschuldigung${pendingCount === 1 ? '' : 'en'} prüfen`}, ${JSON.stringify({ pendingCount })}, ${user.id})
+          `;
+          await transaction`
+            INSERT INTO office_tasks (id, task_type, entity_type, entity_id, title, description, source_history_id, created_by)
+            VALUES (${randomUUID()}, 'attendance_excuse_review', 'lesson', ${lesson.id}, 'Entschuldigungen prüfen', ${`${pendingCount} gemeldete Entschuldigung${pendingCount === 1 ? '' : 'en'} für diese Lektion durch das Büro entscheiden.`}, ${reviewHistoryId}, ${user.id})
+          `;
+        }
+      }
+      if (user.role === "office") {
+        const [remainingPending] = await transaction<{ count: string }[]>`
+          SELECT count(*) FROM attendance WHERE lesson_id = ${lesson.id} AND status = 'excused_pending'
+        `;
+        if (Number(remainingPending?.count ?? 0) === 0) {
+          await transaction`
+            UPDATE office_tasks
+            SET status = 'done', completed_by = ${user.id}, completed_at = now()
+            WHERE task_type = 'attendance_excuse_review'
+              AND entity_type = 'lesson'
+              AND entity_id = ${lesson.id}
+              AND status = 'open'
+          `;
+        }
       }
       return saved;
     });

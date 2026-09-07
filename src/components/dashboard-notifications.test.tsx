@@ -33,4 +33,13 @@ describe("DashboardNotifications", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/notifications", expect.objectContaining({ method: "PATCH" })));
     expect(await screen.findByText("Keine offenen Aufgaben.")).toBeInTheDocument();
   });
+
+  it("opens the attendance review on the lesson date for an excuse task", async () => {
+    const onOpenAttendance = vi.fn();
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ tasks: [{ id: "4f69f3a9-6a9e-4e77-90a6-c2c6a4cd62c0", task_type: "attendance_excuse_review", title: "Entschuldigungen prüfen", description: "Eine gemeldete Entschuldigung prüfen.", created_at: "2026-09-01T09:00:00.000Z", course_id: "course-1", course_code: "DEUA101", language: "Deutsch", level: "A1", actor_name: "Mia Muster", lesson_id: "00a24f1a-7d8f-4253-b302-4371a6cd507e", lesson_date: "2026-09-07" }] }) })));
+    render(<DashboardNotifications onOpenAttendance={onOpenAttendance} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Prüfen" }));
+    expect(onOpenAttendance).toHaveBeenCalledWith("2026-09-07");
+  });
 });

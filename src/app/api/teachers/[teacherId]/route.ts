@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/database";
+import { hashPassword } from "@/lib/passwords";
 
 const levelSchema = z.enum(["A0", "A1", "A2", "B1", "B2", "C1", "C2"]);
 const salutationSchema = z.enum(["frau", "herr", "divers", "keine_angabe"]);
@@ -15,7 +16,7 @@ const structuredTeachingLevelSchema = z.object({ language: z.string().trim().min
 const legacyTeachingLevelSchema = z.object({ language: z.string().trim().min(2).max(60), levels: z.array(levelSchema).min(1).max(7) });
 const teachingLevelSchema = z.union([structuredTeachingLevelSchema, legacyTeachingLevelSchema]);
 const notesSchema = z.union([z.string().trim().max(5000), z.array(z.string().trim().min(1).max(5000)).max(50)]).nullable().optional();
-const updateSchema = z.object({ name: z.string().trim().min(2).max(120).optional(), email: z.email().optional(), salutation: salutationSchema.nullable().optional(), firstName: z.string().trim().min(1).max(80).optional(), lastName: z.string().trim().min(1).max(100).optional(), gender: genderSchema.nullable().optional(), phone: z.string().trim().max(40).nullable().optional(), street: z.string().trim().max(160).nullable().optional(), postalCode: z.string().trim().max(20).nullable().optional(), city: z.string().trim().max(100).nullable().optional(), teacherCode: z.string().trim().max(40).nullable().optional(), teachingLevels: z.array(teachingLevelSchema).max(30).optional(), notes: notesSchema, active: z.boolean().optional(), ratePerLesson: z.number().min(0).max(10000).nullable().optional() }).refine((value) => Object.keys(value).length > 0);
+const updateSchema = z.object({ name: z.string().trim().min(2).max(120).optional(), email: z.email().optional(), salutation: salutationSchema.nullable().optional(), firstName: z.string().trim().min(1).max(80).optional(), lastName: z.string().trim().min(1).max(100).optional(), gender: genderSchema.nullable().optional(), phone: z.string().trim().max(40).nullable().optional(), street: z.string().trim().max(160).nullable().optional(), postalCode: z.string().trim().max(20).nullable().optional(), city: z.string().trim().max(100).nullable().optional(), teacherCode: z.string().trim().max(40).nullable().optional(), teachingLevels: z.array(teachingLevelSchema).max(30).optional(), notes: notesSchema, active: z.boolean().optional(), ratePerLesson: z.number().min(0).max(10000).nullable().optional(), password: z.string().min(12).max(256).optional() }).refine((value) => Object.keys(value).length > 0);
 
 function displayName(input: { firstName?: string | null; lastName?: string | null; name?: string | null }, fallback = "Lehrperson") {
   const structured = [input.firstName, input.lastName].filter(Boolean).join(" ").trim();
@@ -69,7 +70,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ teach
     const teacher = await sql.begin(async (transaction) => {
       const has = (key: keyof typeof input) => Object.prototype.hasOwnProperty.call(input, key);
       const nextName = has("firstName") || has("lastName") ? displayName({ firstName: input.firstName ?? existing.first_name, lastName: input.lastName ?? existing.last_name }, existing.name) : input.name;
-      const [user] = await transaction`UPDATE users SET name = COALESCE(${nextName ?? null}, name), email = COALESCE(${input.email?.toLowerCase() ?? null}, email) WHERE id = ${teacherId} RETURNING id, name, email, role`;
+      const passwordHash = input.password ? hashPassword(input.password) : null;
+      const [user] = await transaction`UPDATE users SET name = COALESCE(${nextName ?? null}, name), email = COALESCE(${input.email?.toLowerCase() ?? null}, email), password_hash = COALESCE(${passwordHash}, password_hash) WHERE id = ${teacherId} RETURNING id, name, email, role`;
       const [profile] = await transaction`INSERT INTO teacher_profiles (user_id, salutation, first_name, last_name, gender) VALUES (${teacherId}, ${input.salutation ?? null}, ${input.firstName ?? null}, ${input.lastName ?? null}, ${input.gender ?? null}) ON CONFLICT (user_id) DO UPDATE SET salutation = CASE WHEN ${has("salutation")} THEN ${input.salutation ?? null} ELSE teacher_profiles.salutation END, first_name = CASE WHEN ${has("firstName")} THEN ${input.firstName ?? null} ELSE teacher_profiles.first_name END, last_name = CASE WHEN ${has("lastName")} THEN ${input.lastName ?? null} ELSE teacher_profiles.last_name END, gender = CASE WHEN ${has("gender")} THEN ${input.gender ?? null} ELSE teacher_profiles.gender END, phone = CASE WHEN ${has("phone")} THEN ${input.phone ?? null} ELSE teacher_profiles.phone END, street = CASE WHEN ${has("street")} THEN ${input.street ?? null} ELSE teacher_profiles.street END, postal_code = CASE WHEN ${has("postalCode")} THEN ${input.postalCode ?? null} ELSE teacher_profiles.postal_code END, city = CASE WHEN ${has("city")} THEN ${input.city ?? null} ELSE teacher_profiles.city END, teacher_code = CASE WHEN ${has("teacherCode")} THEN ${input.teacherCode ?? null} ELSE teacher_profiles.teacher_code END, active = CASE WHEN ${has("active")} THEN ${input.active ?? null} ELSE teacher_profiles.active END, rate_per_lesson = CASE WHEN ${has("ratePerLesson")} THEN ${input.ratePerLesson ?? null} ELSE teacher_profiles.rate_per_lesson END, updated_at = now() RETURNING *`;
       if (Object.prototype.hasOwnProperty.call(input, "teachingLevels")) {
         await transaction`DELETE FROM teacher_teaching_levels WHERE teacher_id = ${teacherId}`;
@@ -83,7 +85,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ teach
       for (const note of notes) {
         await transaction`INSERT INTO person_notes (id, user_id, body, created_by) VALUES (${randomUUID()}, ${teacherId}, ${note}, ${actor.id})`;
       }
-      await transaction`INSERT INTO change_history (id, entity_type, entity_id, event_type, summary, before_data, after_data, actor_id) VALUES (${randomUUID()}, 'teacher', ${teacherId}, 'updated', 'Lehrpersonendaten geändert', ${JSON.stringify(existing)}, ${JSON.stringify(input)}, ${actor.id})`;
+      const safeInput = Object.fromEntries(Object.entries(input).filter(([key]) => key !== "password"));
+      await transaction`INSERT INTO change_history (id, entity_type, entity_id, event_type, summary, before_data, after_data, actor_id) VALUES (${randomUUID()}, 'teacher', ${teacherId}, 'updated', 'Lehrpersonendaten geändert', ${JSON.stringify(existing)}, ${JSON.stringify(safeInput)}, ${actor.id})`;
       return { ...user, ...profile };
     });
     return NextResponse.json({ teacher });

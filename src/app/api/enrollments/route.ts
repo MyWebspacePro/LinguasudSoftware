@@ -35,6 +35,7 @@ export async function GET() {
                  json_build_object('id', courses.id, 'code', courses.code, 'language', courses.language, 'level', courses.level, 'status', courses.status, 'teacher', json_build_object('id', teachers.id, 'name', teachers.name, 'email', teachers.email), 'standardRoomId', courses.standard_room_id, 'schedules', COALESCE((SELECT json_agg(json_build_object('id', cs.id, 'weekday', cs.weekday, 'startTime', cs.start_time, 'durationMinutes', cs.duration_minutes) ORDER BY cs.weekday, cs.start_time) FROM course_schedules cs WHERE cs.course_id = courses.id), '[]')) AS course,
                  (SELECT json_build_object(
                     'present', count(*) FILTER (WHERE a.status = 'present')::int,
+                    'excusedPending', count(*) FILTER (WHERE a.status = 'excused_pending')::int,
                     'excused', count(*) FILTER (WHERE a.status = 'excused')::int,
                     'unexcused', count(*) FILTER (WHERE a.status = 'unexcused')::int,
                     'online', count(*) FILTER (WHERE a.status = 'online')::int,
@@ -57,6 +58,7 @@ export async function GET() {
                    json_build_object('id', courses.id, 'code', courses.code, 'language', courses.language, 'level', courses.level, 'status', courses.status, 'teacher', json_build_object('id', teachers.id, 'name', teachers.name, 'email', teachers.email), 'standardRoomId', courses.standard_room_id, 'schedules', COALESCE((SELECT json_agg(json_build_object('id', cs.id, 'weekday', cs.weekday, 'startTime', cs.start_time, 'durationMinutes', cs.duration_minutes) ORDER BY cs.weekday, cs.start_time) FROM course_schedules cs WHERE cs.course_id = courses.id), '[]')) AS course,
                    (SELECT json_build_object(
                       'present', count(*) FILTER (WHERE a.status = 'present')::int,
+                      'excusedPending', count(*) FILTER (WHERE a.status = 'excused_pending')::int,
                       'excused', count(*) FILTER (WHERE a.status = 'excused')::int,
                       'unexcused', count(*) FILTER (WHERE a.status = 'unexcused')::int,
                       'online', count(*) FILTER (WHERE a.status = 'online')::int,
@@ -78,6 +80,7 @@ export async function GET() {
                    json_build_object('id', courses.id, 'code', courses.code, 'language', courses.language, 'level', courses.level, 'status', courses.status, 'teacher', json_build_object('id', teachers.id, 'name', teachers.name, 'email', teachers.email), 'standardRoomId', courses.standard_room_id, 'schedules', COALESCE((SELECT json_agg(json_build_object('id', cs.id, 'weekday', cs.weekday, 'startTime', cs.start_time, 'durationMinutes', cs.duration_minutes) ORDER BY cs.weekday, cs.start_time) FROM course_schedules cs WHERE cs.course_id = courses.id), '[]')) AS course,
                    (SELECT json_build_object(
                       'present', count(*) FILTER (WHERE a.status = 'present')::int,
+                      'excusedPending', count(*) FILTER (WHERE a.status = 'excused_pending')::int,
                       'excused', count(*) FILTER (WHERE a.status = 'excused')::int,
                       'unexcused', count(*) FILTER (WHERE a.status = 'unexcused')::int,
                       'online', count(*) FILTER (WHERE a.status = 'online')::int,

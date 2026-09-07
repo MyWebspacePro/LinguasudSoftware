@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-type AttendanceStatus = "present" | "excused" | "unexcused" | "trial" | "online";
+type AttendanceStatus = "present" | "excused_pending" | "excused" | "unexcused" | "trial" | "online";
 
 type Lesson = {
   id: string;
@@ -25,10 +25,12 @@ type AttendanceEntry = {
 
 type OfficeAttendanceWorkspaceProps = {
   onNotice?: (message: string) => void;
+  initialDate?: string;
 };
 
 const attendanceOptions: Array<{ value: AttendanceStatus; label: string }> = [
   { value: "present", label: "Anwesend" },
+  { value: "excused_pending", label: "Entschuldigung gemeldet – prüfen" },
   { value: "excused", label: "Entschuldigt" },
   { value: "unexcused", label: "Unentschuldigt" },
   { value: "online", label: "Online teilgenommen" },
@@ -51,8 +53,8 @@ function lessonLabel(lesson: Lesson) {
   return `${time} · ${lesson.code} · ${lesson.location_name} / ${lesson.room_name}`;
 }
 
-export function OfficeAttendanceWorkspace({ onNotice }: OfficeAttendanceWorkspaceProps) {
-  const [date, setDate] = useState(localDateForApi);
+export function OfficeAttendanceWorkspace({ onNotice, initialDate }: OfficeAttendanceWorkspaceProps) {
+  const [date, setDate] = useState(initialDate ?? localDateForApi);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [selectedLessonId, setSelectedLessonId] = useState("");
   const [entries, setEntries] = useState<AttendanceEntry[]>([]);

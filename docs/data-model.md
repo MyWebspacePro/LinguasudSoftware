@@ -14,7 +14,7 @@ Die Administration verwendet die UUID des jeweiligen Datensatzes als stabile Ref
 - `attendance.lesson_id` und `attendance.enrollment_id` verknüpfen Anwesenheiten mit genau einer Lektion und Teilnahme.
 - `enrollment_pauses.enrollment_id`, `person_notes.user_id` und `change_history.actor_id` bewahren Pausen, Notizen und die Änderungshistorie.
 - Die Raumplanung prüft die Raumkapazität und Lehrpersonenkollisionen; die 15-Minuten-Raumpufferwarnung bleibt eine bestätigbare Warnung. Kurse am Standort Winterthur dürfen nicht in ein anderes Gebäude verschoben werden.
-- Anwesenheiten können erst nach dem Lektionszeitpunkt bestätigt werden. Nur bestätigte Anwesenheiten abgeschlossener Lektionen verbrauchen privates Guthaben beziehungsweise werden für Kostenträger abgerechnet.
+- Anwesenheiten können erst nach dem Lektionszeitpunkt bestätigt werden. Lehrpersonen erfassen eine gemeldete Entschuldigung zunächst als `excused_pending`; nur das Büro entscheidet anschliessend zwischen entschuldigt und unentschuldigt. Nur bestätigte Anwesenheiten abgeschlossener Lektionen mit `present`, `unexcused` oder `online` verbrauchen privates Guthaben beziehungsweise werden für Kostenträger abgerechnet.
 
 ## Aggregate-APIs
 
@@ -32,4 +32,4 @@ Die Listen- und Detailrouten liefern neben den flachen IDs auch strukturierte Re
 
 Stammdatenänderungen erfolgen über `PATCH /api/rooms/:roomId`, `PATCH /api/locations/:locationId` und `PATCH /api/courses/:courseId` (Kursstatus, Kurskennung, Niveau und Dauer). Eine geänderte Kursdauer wird nach Konfliktprüfung auf Wochenplan und zukünftige geplante Lektionen übertragen; auch manuell ergänzte Lektionen übernehmen ausschliesslich diese Kursdauer. Anlage, Änderungen, Verschiebungen, Abmeldungen und Statuswechsel werden in `change_history` protokolliert. Die Raumverwaltung kann mit `GET /api/rooms?includeInactive=true` auch deaktivierte Räume für eine Reaktivierung laden; der Planer verwendet weiterhin nur aktive Räume.
 
-Die Migrationen `013_person_identity_and_notes.sql` bis `020_initial_room_inventory.sql` werden beim Start des Containers automatisch angewendet. Sie richten für den Startbestand 12 Räume in Schaffhausen 1, 4 Räume in Schaffhausen 2 und 4 Räume in Winterthur ein; alle bleiben in der Raumverwaltung vollständig bearbeitbar.
+Die Migrationen `013_person_identity_and_notes.sql` bis `021_attendance_excuse_review.sql` werden beim Start des Containers automatisch angewendet. Sie richten für den Startbestand 12 Räume in Schaffhausen 1, 4 Räume in Schaffhausen 2 und 4 Räume in Winterthur ein; alle bleiben in der Raumverwaltung vollständig bearbeitbar.

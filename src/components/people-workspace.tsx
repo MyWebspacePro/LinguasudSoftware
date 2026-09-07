@@ -8,7 +8,7 @@ type QualificationRow = { language: string; fromLevel: string; toLevel: string }
 type PersonNote = { id: string; body: string; createdAt: string; createdBy?: string | null };
 type Person = { id: string; name: string; email: string; role: PersonRole; salutation?: string | null; first_name?: string | null; last_name?: string | null; gender?: string | null; phone?: string | null; street?: string | null; postal_code?: string | null; city?: string | null; preferred_contact?: "email" | "phone" | "postal" | null; email_reminders?: boolean; language_preference?: string | null; notes?: string | null; notes_history?: PersonNote[]; teacher_code?: string | null; rate_per_lesson?: number | null; teaching_levels?: TeachingLevel[]; courses?: Array<{ id: string; code: string; language: string; level: string; status: string; standardRoomId: string | null }>; course_count?: number; history?: Array<{ eventType: string; summary: string; occurredAt: string }> };
 type Course = { id: string; code: string; language: string; level: string; teacher_id: string; teacher_name: string };
-type AttendanceSummary = { present: number; excused: number; unexcused: number; online: number; trial: number };
+type AttendanceSummary = { present: number; excusedPending?: number; excused: number; unexcused: number; online: number; trial: number };
 type EnrollmentPause = { id: string; startsOn: string; endsOn: string | null; reason: string | null };
 type Enrollment = { id: string; participant_id: string; course_id: string; billing_type: "private" | "authority"; credit_lessons: number | null; payment_status?: "open" | "partially_paid" | "paid" | "overdue"; purchased_amount?: number | null; payer_name?: string | null; case_reference?: string | null; approved_lessons?: number | null; approved_amount?: number | null; valid_from?: string | null; valid_until?: string | null; tariff?: number | null; invoice_recipient?: string | null; active: boolean; course_code: string; course_language: string; course_level: string; attendance_summary?: AttendanceSummary; pauses?: EnrollmentPause[] };
 
@@ -75,8 +75,9 @@ function formatParticipantDate(value: string | null) {
 }
 
 function attendanceText(summary: AttendanceSummary | undefined) {
-  const current = summary ?? { present: 0, excused: 0, unexcused: 0, online: 0, trial: 0 };
+  const current = summary ?? { present: 0, excusedPending: 0, excused: 0, unexcused: 0, online: 0, trial: 0 };
   const parts = [`${current.present} anwesend`, `${current.excused} entschuldigt`, `${current.unexcused} unentschuldigt`];
+  if (current.excusedPending) parts.push(`${current.excusedPending} Entschuldigung offen`);
   if (current.online > 0) parts.push(`${current.online} online`);
   if (current.trial > 0) parts.push(`${current.trial} Probelektion`);
   return parts.join(" · ");
@@ -218,7 +219,7 @@ export function PeopleWorkspace({ mode, onOpenCourse, focusPersonId = null }: { 
     setIsCreating(true);
     setError(null);
     try {
-      const response = await fetch(`/api/${role === "participant" ? "participants" : "teachers"}/${editingPerson.id}`, { method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ salutation: formData.get("salutation"), firstName: formData.get("firstName"), lastName: formData.get("lastName"), gender: formData.get("gender"), email: formData.get("email"), phone: formData.get("phone") || null, street: formData.get("street") || null, postalCode: formData.get("postalCode") || null, city: formData.get("city") || null, preferredContact: isParticipantMode ? formData.get("preferredContact") : undefined, emailReminders: isParticipantMode ? formData.get("emailReminders") === "on" : undefined, languagePreference: isParticipantMode ? formData.get("languagePreference") || null : undefined, teacherCode: isParticipantMode ? undefined : formData.get("teacherCode") || null, teachingLevels: isParticipantMode ? undefined : parseQualificationRows(formData.get("teachingLevelsJson")), ratePerLesson: isParticipantMode ? undefined : (formData.get("ratePerLesson") ? Number(formData.get("ratePerLesson")) : null), notes: parseNotes(formData.get("notesJson")) }) });
+      const response = await fetch(`/api/${role === "participant" ? "participants" : "teachers"}/${editingPerson.id}`, { method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ salutation: formData.get("salutation"), firstName: formData.get("firstName"), lastName: formData.get("lastName"), gender: formData.get("gender"), email: formData.get("email"), password: formData.get("password") || undefined, phone: formData.get("phone") || null, street: formData.get("street") || null, postalCode: formData.get("postalCode") || null, city: formData.get("city") || null, preferredContact: isParticipantMode ? formData.get("preferredContact") : undefined, emailReminders: isParticipantMode ? formData.get("emailReminders") === "on" : undefined, languagePreference: isParticipantMode ? formData.get("languagePreference") || null : undefined, teacherCode: isParticipantMode ? undefined : formData.get("teacherCode") || null, teachingLevels: isParticipantMode ? undefined : parseQualificationRows(formData.get("teachingLevelsJson")), ratePerLesson: isParticipantMode ? undefined : (formData.get("ratePerLesson") ? Number(formData.get("ratePerLesson")) : null), notes: parseNotes(formData.get("notesJson")) }) });
       const payload = await response.json();
       if (!response.ok) throw new Error(errorMessage(payload, "Daten konnten nicht geändert werden."));
       setEditingPerson(null);

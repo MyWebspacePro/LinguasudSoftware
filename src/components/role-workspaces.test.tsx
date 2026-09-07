@@ -31,7 +31,7 @@ describe("RoleWorkspace attendance", () => {
         json: async () => ({
           attendance: [
             { enrollment_id: "9fdbf5d8-d717-4a11-8368-d019a4a53e7a", participant_name: "Lea Baumann", status: "present" },
-            { enrollment_id: "3e77aae7-ec0a-4ddd-8bba-f04b48f1f54b", participant_name: "Amir Hussein", status: "excused" },
+            { enrollment_id: "3e77aae7-ec0a-4ddd-8bba-f04b48f1f54b", participant_name: "Amir Hussein", status: "excused_pending" },
           ],
         }),
       })
@@ -43,7 +43,7 @@ describe("RoleWorkspace attendance", () => {
     fireEvent.click(screen.getByRole("button", { name: "Anwesenheit erfassen" }));
 
     expect(await screen.findByLabelText("Lea Baumann Anwesenheit")).toHaveValue("present");
-    expect(screen.getByLabelText("Amir Hussein Anwesenheit")).toHaveValue("excused");
+    expect(screen.getByLabelText("Amir Hussein Anwesenheit")).toHaveValue("excused_pending");
 
     fireEvent.change(screen.getByLabelText("Lea Baumann Anwesenheit"), { target: { value: "online" } });
     fireEvent.click(screen.getByRole("button", { name: "Anwesenheit bestätigen" }));
@@ -55,7 +55,7 @@ describe("RoleWorkspace attendance", () => {
         lessonId: "8af5cb1e-13c4-4bbe-8e60-52f396e79cb9",
         entries: [
           { enrollmentId: "9fdbf5d8-d717-4a11-8368-d019a4a53e7a", status: "online" },
-          { enrollmentId: "3e77aae7-ec0a-4ddd-8bba-f04b48f1f54b", status: "excused" },
+          { enrollmentId: "3e77aae7-ec0a-4ddd-8bba-f04b48f1f54b", status: "excused_pending" },
         ],
       }),
     }));

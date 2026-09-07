@@ -7,7 +7,7 @@ import {
   type Location,
   type Room,
   type UserRole,
-} from "@/lib/linguasud-demo";
+} from "@/lib/planner";
 import { RoleWorkspace } from "@/components/role-workspaces";
 import { CourseWorkspace } from "@/components/course-workspace";
 import { PeopleWorkspace } from "@/components/people-workspace";
@@ -204,6 +204,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
   const [courseOpenRequest, setCourseOpenRequest] = useState(0);
   const [focusCourseId, setFocusCourseId] = useState<string | null>(null);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
+  const [attendanceDate, setAttendanceDate] = useState<string | null>(null);
   const [notice, setNotice] = useState("Raumplan wird geladen.");
 
   const lessonsForDay = useMemo(
@@ -384,7 +385,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
         </header>
 
         {activeRole !== "office" ? <RoleWorkspace role={activeRole} userName={user.name} onNotice={setNotice} /> : activeView === "dashboard" ? <>
-          <DashboardNotifications onOpenCourse={(courseId) => { setFocusCourseId(courseId); setActiveView("kurse"); }} />
+          <DashboardNotifications onOpenAttendance={(date) => { setAttendanceDate(date); setIsAttendanceOpen(true); }} onOpenCourse={(courseId) => { setFocusCourseId(courseId); setActiveView("kurse"); }} />
           <section className="planner-panel" aria-labelledby="room-plan-title">
             <h2 className="sr-only" id="room-plan-title">Tägliches Raumraster</h2>
             <div className="planner-toolbar">
@@ -394,7 +395,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
                 <button aria-label="Nächster Tag" className="quiet-button" onClick={() => setActiveDay((day) => shiftDate(day, 1))} type="button">›</button>
                 <input aria-label="Datum wählen" onChange={(event) => event.target.value && setActiveDay(event.target.value)} type="date" value={activeDay} />
               </div>
-              <div className="planner-toolbar__right"><span className="legend"><i /> Lektion <i className="legend__buffer" /> 15 Min. Puffer</span><button className="quiet-button" onClick={() => setIsAttendanceOpen(true)} type="button">Anwesenheiten</button><button className="quiet-button" type="button" onClick={() => void loadRoomPlan()}>↻</button></div>
+              <div className="planner-toolbar__right"><span className="legend"><i /> Lektion <i className="legend__buffer" /> 15 Min. Puffer</span><button className="quiet-button" onClick={() => { setAttendanceDate(null); setIsAttendanceOpen(true); }} type="button">Anwesenheiten</button><button className="quiet-button" type="button" onClick={() => void loadRoomPlan()}>↻</button></div>
             </div>
             <div className="planner-notice" role="status"><span>{notice}</span>{lastMove ? <button onClick={undoLastMove} type="button">Rückgängig</button> : null}</div>
             {plannerStatus === "loading" ? <p className="planner-state" role="status">Aktualisiere Räume und Lektionen …</p> : null}
@@ -419,7 +420,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
             </div>
           </section>
           <DashboardOverview />
-          {isAttendanceOpen ? <div className="dialog-backdrop" role="presentation"><div className="attendance-dialog attendance-dialog--wide"><button aria-label="Anwesenheiten schliessen" className="dialog-close" onClick={() => setIsAttendanceOpen(false)} type="button">×</button><OfficeAttendanceWorkspace onNotice={(message) => { setNotice(message); setIsAttendanceOpen(false); }} /></div></div> : null}
+          {isAttendanceOpen ? <div className="dialog-backdrop" role="presentation"><div className="attendance-dialog attendance-dialog--wide"><button aria-label="Anwesenheiten schliessen" className="dialog-close" onClick={() => setIsAttendanceOpen(false)} type="button">×</button><OfficeAttendanceWorkspace initialDate={attendanceDate ?? undefined} onNotice={(message) => { setNotice(message); setIsAttendanceOpen(false); }} /></div></div> : null}
         </>
         : activeView === "teilnehmer" ? <PeopleWorkspace mode="participants" focusPersonId={focusParticipantId} onOpenCourse={(courseId) => { setFocusParticipantId(null); setFocusCourseId(courseId); setActiveView("kurse"); }} /> : activeView === "lehrpersonen" ? <PeopleWorkspace mode="teachers" onOpenCourse={(courseId) => { setFocusCourseId(courseId); setActiveView("kurse"); }} /> : activeView === "kurse" ? <CourseWorkspace initiallyOpen={courseOpenRequest > 0} focusCourseId={focusCourseId} onOpenParticipant={(participantId) => { setFocusCourseId(null); setFocusParticipantId(participantId); setActiveView("teilnehmer"); }} key={`${courseOpenRequest}-${focusCourseId ?? "all"}`} /> : activeView === "raeume" ? <RoomsWorkspace onOpenCourse={(courseId) => { setFocusCourseId(courseId); setActiveView("kurse"); }} /> : <BillingWorkspace />}
       </main>

@@ -32,7 +32,7 @@ describe("OfficeAttendanceWorkspace", () => {
         json: async () => ({
           attendance: [
             { enrollment_id: "9fdbf5d8-d717-4a11-8368-d019a4a53e7a", participant_name: "Lea Baumann", status: null },
-            { enrollment_id: "3e77aae7-ec0a-4ddd-8bba-f04b48f1f54b", participant_name: "Amir Hussein", status: "excused" },
+            { enrollment_id: "3e77aae7-ec0a-4ddd-8bba-f04b48f1f54b", participant_name: "Amir Hussein", status: "excused_pending" },
           ],
         }),
       })
@@ -43,8 +43,9 @@ describe("OfficeAttendanceWorkspace", () => {
     render(<OfficeAttendanceWorkspace onNotice={onNotice} />);
 
     expect(await screen.findByLabelText("Lea Baumann Anwesenheit")).toHaveValue("present");
-    expect(screen.getByLabelText("Amir Hussein Anwesenheit")).toHaveValue("excused");
+    expect(screen.getByLabelText("Amir Hussein Anwesenheit")).toHaveValue("excused_pending");
     fireEvent.change(screen.getByLabelText("Lea Baumann Anwesenheit"), { target: { value: "unexcused" } });
+    fireEvent.change(screen.getByLabelText("Amir Hussein Anwesenheit"), { target: { value: "excused" } });
     fireEvent.click(screen.getByRole("button", { name: "Anwesenheit speichern" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));

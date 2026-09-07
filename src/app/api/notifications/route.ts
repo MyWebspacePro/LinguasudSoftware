@@ -10,12 +10,15 @@ export async function GET() {
     await requireRole("office");
     const tasks = await db()`
       SELECT t.id, t.task_type, t.title, t.description, t.created_at,
-             t.entity_id AS course_id, c.code AS course_code,
+             c.id AS course_id, c.code AS course_code,
              c.language, c.level, actor.name AS actor_name,
+             CASE WHEN lesson.id IS NULL THEN NULL ELSE lesson.id END AS lesson_id,
+             CASE WHEN lesson.starts_at IS NULL THEN NULL ELSE (lesson.starts_at AT TIME ZONE 'Europe/Zurich')::date END AS lesson_date,
              CASE WHEN c.id IS NULL THEN NULL ELSE json_build_object('id', c.id, 'code', c.code, 'language', c.language, 'level', c.level, 'status', c.status, 'teacherId', c.teacher_id, 'standardRoomId', c.standard_room_id) END AS course,
              CASE WHEN actor.id IS NULL THEN NULL ELSE json_build_object('id', actor.id, 'name', actor.name, 'email', actor.email) END AS actor
       FROM office_tasks t
-      LEFT JOIN courses c ON c.id = t.entity_id AND t.entity_type = 'course'
+      LEFT JOIN lessons lesson ON lesson.id = t.entity_id AND t.entity_type = 'lesson'
+      LEFT JOIN courses c ON c.id = CASE WHEN t.entity_type = 'course' THEN t.entity_id WHEN t.entity_type = 'lesson' THEN lesson.course_id ELSE NULL END
       LEFT JOIN users actor ON actor.id = t.created_by
       WHERE t.status = 'open'
       ORDER BY t.created_at ASC
