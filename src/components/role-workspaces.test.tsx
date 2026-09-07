@@ -98,7 +98,7 @@ describe("RoleWorkspace attendance", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(`/api/lessons/${lessonId}`, expect.objectContaining({
       method: "PATCH",
-      body: JSON.stringify({ actualDurationMinutes: 90, lessonContent: "Dialoge zum Arztbesuch geübt.", homework: "Arbeitsblatt 3 fertigstellen.", teacherNotes: null }),
+      body: JSON.stringify({ lessonContent: "Dialoge zum Arztbesuch geübt.", homework: "Arbeitsblatt 3 fertigstellen.", teacherNotes: null }),
     })));
     expect(onNotice).toHaveBeenCalledWith("MARKELDEA201: Lektionsdokumentation gespeichert.");
   });

@@ -15,7 +15,6 @@ const cancelLessonSchema = z.object({
   cancellationReason: z.string().trim().min(2).max(500).optional(),
 });
 const documentLessonSchema = z.object({
-  actualDurationMinutes: z.number().int().min(1).max(360).nullable().optional(),
   lessonContent: z.string().trim().max(12_000).nullable().optional(),
   homework: z.string().trim().max(8_000).nullable().optional(),
   teacherNotes: z.string().trim().max(8_000).nullable().optional(),
@@ -53,13 +52,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ lesso
     if (documentationResult.success) {
       const input = documentationResult.data;
       const [existing] = user.role === "office"
-        ? await sql`SELECT id, actual_duration_minutes, lesson_content, homework, teacher_notes FROM lessons WHERE id = ${lessonId} AND status <> 'cancelled'`
-        : await sql`SELECT id, actual_duration_minutes, lesson_content, homework, teacher_notes FROM lessons WHERE id = ${lessonId} AND teacher_id = ${user.id} AND status <> 'cancelled'`;
+        ? await sql`SELECT id, lesson_content, homework, teacher_notes FROM lessons WHERE id = ${lessonId} AND status <> 'cancelled'`
+        : await sql`SELECT id, lesson_content, homework, teacher_notes FROM lessons WHERE id = ${lessonId} AND teacher_id = ${user.id} AND status <> 'cancelled'`;
       if (!existing) return NextResponse.json({ error: "Lektion wurde nicht gefunden." }, { status: 404 });
       const has = (key: keyof typeof input) => Object.prototype.hasOwnProperty.call(input, key);
       const [updated] = await sql`
         UPDATE lessons SET
-          actual_duration_minutes = CASE WHEN ${has("actualDurationMinutes")} THEN ${input.actualDurationMinutes ?? null} ELSE actual_duration_minutes END,
           lesson_content = CASE WHEN ${has("lessonContent")} THEN ${input.lessonContent ?? null} ELSE lesson_content END,
           homework = CASE WHEN ${has("homework")} THEN ${input.homework ?? null} ELSE homework END,
           teacher_notes = CASE WHEN ${has("teacherNotes")} THEN ${input.teacherNotes ?? null} ELSE teacher_notes END

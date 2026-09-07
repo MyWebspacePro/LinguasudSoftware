@@ -8,7 +8,7 @@ Die Administration verwendet die UUID des jeweiligen Datensatzes als stabile Ref
 - `teacher_profiles.user_id` und `participant_profiles.user_id` erweitern die jeweilige Identität um Stammdaten.
 - `courses.teacher_id` verweist auf die Lehrperson und `courses.standard_room_id` auf den Standardraum.
 - `course_schedules.course_id` beschreibt die wöchentlichen Termine eines Kurses.
-- `lessons.course_id`, `lessons.room_id` und `lessons.teacher_id` verknüpfen jede konkrete Lektion mit Kurs, Raum und (gegebenenfalls abweichender) Lehrperson. Die konkrete Lektion trägt zudem tatsächliche Dauer, Unterrichtsinhalt, Hausaufgaben und interne Lehrpersonennotizen.
+- `lessons.course_id`, `lessons.room_id` und `lessons.teacher_id` verknüpfen jede konkrete Lektion mit Kurs, Raum und (gegebenenfalls abweichender) Lehrperson. Die Dauer bleibt durch Kurs beziehungsweise Termin verbindlich vorgegeben; die konkrete Lektion trägt Unterrichtsinhalt, Hausaufgaben und interne Lehrpersonennotizen.
 - `enrollments.course_id` und `enrollments.participant_id` verknüpfen Kurse und Teilnehmende.
 - `attendance.lesson_id` und `attendance.enrollment_id` verknüpfen Anwesenheiten mit genau einer Lektion und Teilnahme.
 - `enrollment_pauses.enrollment_id`, `person_notes.user_id` und `change_history.actor_id` bewahren Pausen, Notizen und die Änderungshistorie.
