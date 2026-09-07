@@ -33,7 +33,10 @@ export async function POST(request: Request) {
   try {
     await requireRole("office");
     const input = createRoomSchema.parse(await request.json());
-    const [room] = await db()`INSERT INTO rooms (id, location_id, name, capacity) VALUES (${randomUUID()}, ${input.locationId}, ${input.name}, ${input.capacity}) RETURNING id, location_id, name, capacity, active`;
+    const sql = db();
+    const [location] = await sql`SELECT id FROM locations WHERE id = ${input.locationId}`;
+    if (!location) return NextResponse.json({ error: "Standort wurde nicht gefunden." }, { status: 404 });
+    const [room] = await sql`INSERT INTO rooms (id, location_id, name, capacity) VALUES (${randomUUID()}, ${input.locationId}, ${input.name}, ${input.capacity}) RETURNING id, location_id, name, capacity, active`;
     return NextResponse.json({ room }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Ungültige Raumdaten." }, { status: 400 });

@@ -56,6 +56,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ cours
     }
     const sql = db();
     const [updated] = await sql`UPDATE courses SET level = COALESCE(${input.level ?? null}, level), code = COALESCE(${input.code ?? null}, code) WHERE id = ${courseId} RETURNING *`;
+    if (user.role === "office" && input.code !== undefined) {
+      // A course-code update is the office's acknowledgement of a teacher's
+      // level-change task. Close only the open tasks for this exact course.
+      await sql`UPDATE office_tasks SET status = 'done', completed_by = ${user.id}, completed_at = now() WHERE entity_type = 'course' AND entity_id = ${courseId} AND task_type = 'course_level_changed' AND status = 'open'`;
+    }
     if (user.role === "teacher" && input.level !== undefined && input.level !== course.level) {
       const historyId = randomUUID();
       const summary = `${user.name} hat ${course.code} von ${course.level} auf ${input.level} geändert`;
