@@ -332,7 +332,18 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
         ) : <ManagementPreview view={activeView} onAction={setNotice} />}
       </main>
 
-      {selectedLesson ? <LessonDialog lesson={selectedLesson} rooms={plannerRooms} locations={plannerLocations} onClose={() => setSelectedLessonId(null)} onCancel={() => { setLessons((current) => current.map((lesson) => lesson.id === selectedLesson.id ? { ...lesson, status: "cancelled" } : lesson)); setNotice(`${selectedLesson.courseCode} ist abgesagt. Teilnehmende werden benachrichtigt.`); setSelectedLessonId(null); }} /> : null}
+      {selectedLesson ? <LessonDialog lesson={selectedLesson} rooms={plannerRooms} locations={plannerLocations} onClose={() => setSelectedLessonId(null)} onCancel={async () => {
+        try {
+          const response = await fetch(`/api/lessons/${selectedLesson.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ status: "cancelled" }) });
+          const payload = await response.json() as { error?: string };
+          if (!response.ok) throw new Error(payload.error ?? "Lektion konnte nicht abgesagt werden.");
+          setLessons((current) => current.map((lesson) => lesson.id === selectedLesson.id ? { ...lesson, status: "cancelled" } : lesson));
+          setNotice(`${selectedLesson.courseCode} ist abgesagt.`);
+          setSelectedLessonId(null);
+        } catch (error) {
+          setNotice(error instanceof Error ? error.message : "Lektion konnte nicht abgesagt werden.");
+        }
+      }} /> : null}
     </div>
   );
 }
@@ -346,7 +357,7 @@ function ManagementPreview({ view, onAction }: { view: Exclude<View, "raumplan">
   return <section className="management-preview"><div className="preview-intro"><p className="eyebrow">In Vorbereitung</p><h2>{content.title} <span>{content.count}</span></h2><p>{content.copy}</p></div><div className="preview-grid">{content.cards.map((card) => <article key={card}><span>Aktuell</span><h3>{card}</h3><button type="button" onClick={() => onAction(`${card}: Detailansicht wird im nächsten Schritt ergänzt.`)}>Details öffnen →</button></article>)}</div></section>;
 }
 
-function LessonDialog({ lesson, rooms, locations, onClose, onCancel }: { lesson: PlannerLesson; rooms: PlannerRoom[]; locations: Location[]; onClose: () => void; onCancel: () => void }) {
+function LessonDialog({ lesson, rooms, locations, onClose, onCancel }: { lesson: PlannerLesson; rooms: PlannerRoom[]; locations: Location[]; onClose: () => void; onCancel: () => void | Promise<void> }) {
   const room = rooms.find((item) => item.id === lesson.roomId);
   const location = locations.find((item) => item.rooms.some((itemRoom) => itemRoom.id === lesson.roomId));
   return <div className="dialog-backdrop" role="presentation" onMouseDown={onClose}><section className="lesson-dialog" aria-labelledby="lesson-dialog-title" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true"><button className="dialog-close" onClick={onClose} type="button" aria-label="Details schliessen">×</button><p className="eyebrow">Konkrete Lektion</p><h2 id="lesson-dialog-title">{lesson.courseCode}</h2><p className="dialog-course">{lesson.courseName}</p><dl><div><dt>Termin</dt><dd>{formatTime(lesson.startMinutes)}–{formatTime(lesson.startMinutes + lesson.durationMinutes)} Uhr</dd></div><div><dt>Raum</dt><dd>{location?.name} · {room?.name}</dd></div><div><dt>Lehrperson</dt><dd>{lesson.teacher}</dd></div><div><dt>Teilnehmende</dt><dd>{lesson.participantCount} aktiv</dd></div></dl><div className="dialog-note"><strong>Offene Aufgabe</strong><p>Nach der Lektion Anwesenheiten und Unterrichtsinhalte bestätigen.</p></div><div className="dialog-actions"><button className="danger-button" onClick={onCancel} type="button">Lektion absagen</button><button className="primary-button" onClick={onClose} type="button">Details bearbeiten</button></div></section></div>;

@@ -4,19 +4,27 @@ import { z } from "zod";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/database";
 
-const updateLessonSchema = z.object({
+const moveLessonSchema = z.object({
   roomId: z.uuid(),
   startsAt: z.coerce.date(),
+});
+const cancelLessonSchema = z.object({
+  status: z.literal("cancelled"),
+  cancellationReason: z.string().trim().min(2).max(500).optional(),
 });
 
 export async function PATCH(request: Request, context: { params: Promise<{ lessonId: string }> }) {
   try {
     const user = await requireRole("office");
     const { lessonId } = await context.params;
-    const input = updateLessonSchema.parse(await request.json());
+    const input = z.union([moveLessonSchema, cancelLessonSchema]).parse(await request.json());
     const sql = db();
     const [lesson] = await sql<{ id: string; teacher_id: string; duration_minutes: number }[]>`SELECT id, teacher_id, duration_minutes FROM lessons WHERE id = ${lessonId} AND status = 'scheduled'`;
     if (!lesson) return NextResponse.json({ error: "Lektion wurde nicht gefunden." }, { status: 404 });
+    if ("status" in input) {
+      const [updated] = await sql`UPDATE lessons SET status = 'cancelled', cancellation_reason = ${input.cancellationReason ?? null} WHERE id = ${lessonId} RETURNING *`;
+      return NextResponse.json({ lesson: updated, changedBy: user.id });
+    }
     const [room] = await sql<{ capacity: number }[]>`SELECT capacity FROM rooms WHERE id = ${input.roomId} AND active = true`;
     if (!room) return NextResponse.json({ error: "Raum ist nicht verfügbar." }, { status: 400 });
     const [participants] = await sql<{ count: string }[]>`SELECT count(*) FROM enrollments JOIN lessons ON lessons.course_id = enrollments.course_id WHERE lessons.id = ${lessonId} AND enrollments.active = true`;
