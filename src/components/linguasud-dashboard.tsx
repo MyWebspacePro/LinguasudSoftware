@@ -298,7 +298,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
           <div className="topbar__actions"><button className="quiet-button" type="button" onClick={() => setNotice("Keine neuen Benachrichtigungen.")}>⌁ <span>Benachrichtigungen</span></button>{activeRole === "office" ? <button className="primary-button" type="button" onClick={() => setNotice("Neue Einträge werden im nächsten Umsetzungsschritt über ein Formular angelegt.")}>+ Neuer Kurs</button> : null}</div>
         </header>
 
-        {activeRole !== "office" ? <RoleWorkspace role={activeRole} onNotice={setNotice} /> : activeView === "raumplan" ? (
+        {activeRole !== "office" ? <RoleWorkspace role={activeRole} userName={user.name} onNotice={setNotice} /> : activeView === "raumplan" ? (
           <section className="planner-panel" aria-labelledby="room-plan-title">
             <h2 className="sr-only" id="room-plan-title">Tägliches Raumraster</h2>
             <div className="planner-toolbar">

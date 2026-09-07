@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
-
-import { formatTime } from "@/lib/linguasud-demo";
+import { useEffect, useState } from "react";
 
 type RoleWorkspaceProps = {
   role: "teacher" | "participant";
   onNotice: (message: string) => void;
+  userName?: string;
 };
 
 type AttendanceStatus = "present" | "excused" | "unexcused" | "cancelled_short_notice" | "trial" | "online";
@@ -49,11 +48,11 @@ function apiError(payload: unknown, fallback: string) {
     : fallback;
 }
 
-export function RoleWorkspace({ role, onNotice }: RoleWorkspaceProps) {
-  return role === "teacher" ? <TeacherWorkspace onNotice={onNotice} /> : <ParticipantWorkspace onNotice={onNotice} />;
+export function RoleWorkspace({ role, onNotice, userName = role === "teacher" ? "Lehrperson" : "Teilnehmer:in" }: RoleWorkspaceProps) {
+  return role === "teacher" ? <TeacherWorkspace onNotice={onNotice} userName={userName} /> : <ParticipantWorkspace onNotice={onNotice} userName={userName} />;
 }
 
-function TeacherWorkspace({ onNotice }: { onNotice: (message: string) => void }) {
+function TeacherWorkspace({ onNotice, userName }: { onNotice: (message: string) => void; userName: string }) {
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
   const [attendanceLesson, setAttendanceLesson] = useState<LessonForAttendance | null>(null);
   const [attendanceEntries, setAttendanceEntries] = useState<AttendanceEntry[]>([]);
@@ -130,21 +129,52 @@ function TeacherWorkspace({ onNotice }: { onNotice: (message: string) => void })
   }
 
   return <section className="role-workspace" aria-labelledby="teacher-title">
-    <div className="role-workspace__intro"><p className="eyebrow">Lehrpersonenbereich</p><h2 id="teacher-title">Guten Abend, Maria.</h2><p>Du siehst nur deine heutigen Lektionen und die dafür nötigen Teilnahmedaten.</p></div>
+    <div className="role-workspace__intro"><p className="eyebrow">Lehrpersonenbereich</p><h2 id="teacher-title">Guten Abend, {userName}.</h2><p>Du siehst nur deine heutigen Lektionen und die dafür nötigen Teilnahmedaten.</p></div>
     <article className="teacher-lesson"><div><span className="status-pill">Heute · 18:00 Uhr</span><h3>Deutsch A2 · Abendkurs</h3><p>Schaffhausen 1 · Raum A1 · 5 Teilnehmende</p></div><button className="primary-button" type="button" onClick={openAttendance}>Anwesenheit erfassen</button></article>
     <div className="teacher-grid"><article><span>Danach</span><h3>Unterrichtsinhalt ergänzen</h3><p>Notiere Ablauf, Hausaufgaben und besondere Vorkommnisse direkt bei der Lektion.</p><button type="button" onClick={() => onNotice("Die Lektionsplanung öffnet sich nach Auswahl der konkreten Lektion.")}>Lektionsplanung öffnen →</button></article><article><span>Kursniveau</span><h3>Aktuell A2</h3><p>Niveauänderungen kannst du für deinen Kurs melden. Die sichtbare Kennung passt anschliessend das Büro an.</p><button type="button" onClick={() => onNotice("Niveauänderung als Meldung ans Büro vorbereitet.")}>Niveauänderung melden →</button></article></div>
     {isAttendanceOpen ? <div className="dialog-backdrop" role="presentation"><section className="attendance-dialog" aria-labelledby="attendance-title" role="dialog" aria-modal="true"><button aria-label="Anwesenheit schliessen" className="dialog-close" onClick={() => setIsAttendanceOpen(false)} type="button">×</button><p className="eyebrow">{attendanceLesson ? `${attendanceLesson.code} · ${new Intl.DateTimeFormat("de-CH", { hour: "2-digit", minute: "2-digit" }).format(new Date(attendanceLesson.starts_at))}` : "Anwesenheit"}</p><h2 id="attendance-title">Anwesenheit</h2><p className="dialog-course">Bitte nach der stattgefundenen Lektion bestätigen.</p>{isAttendanceLoading ? <p aria-live="polite">Anwesenheiten werden geladen …</p> : attendanceError ? <p aria-live="assertive" className="dialog-note">{attendanceError}</p> : <div className="attendance-list">{attendanceEntries.map((entry) => <div key={entry.enrollment_id}><strong>{entry.participant_name}</strong><select aria-label={`${entry.participant_name} Anwesenheit`} value={attendance[entry.enrollment_id] ?? "present"} onChange={(event) => setAttendance((current) => ({ ...current, [entry.enrollment_id]: event.target.value as AttendanceStatus }))}>{attendanceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>)}</div>}<div className="dialog-actions"><button className="quiet-button" disabled={isAttendanceSaving} onClick={() => setIsAttendanceOpen(false)} type="button">Abbrechen</button><button className="primary-button" disabled={isAttendanceLoading || isAttendanceSaving || !attendanceLesson || attendanceEntries.length === 0} onClick={saveAttendance} type="button">{isAttendanceSaving ? "Wird gespeichert …" : "Anwesenheit bestätigen"}</button></div></section></div> : null}
   </section>;
 }
 
-function ParticipantWorkspace({ onNotice }: { onNotice: (message: string) => void }) {
+type NextLesson = {
+  starts_at: string;
+  duration_minutes: number | string;
+  status: "scheduled" | "cancelled";
+  course_code: string;
+  course_language: string;
+  course_level: string;
+  room_name: string | null;
+  location_name: string | null;
+  teacher_name: string;
+};
+
+function ParticipantWorkspace({ onNotice, userName }: { onNotice: (message: string) => void; userName: string }) {
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [pushEnabled, setPushEnabled] = useState(false);
-  const nextLessonTime = 18 * 60;
+  const [nextLesson, setNextLesson] = useState<NextLesson | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    queueMicrotask(async () => {
+      try {
+        const response = await fetch("/api/participant/next-lessons", { credentials: "same-origin", signal: controller.signal });
+        const payload = await response.json() as { lessons?: NextLesson[]; error?: string };
+        if (!response.ok) throw new Error(payload.error ?? "Nächste Lektion konnte nicht geladen werden.");
+        if (!controller.signal.aborted) setNextLesson(payload.lessons?.[0] ?? null);
+      } catch (error) {
+        if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : "Nächste Lektion konnte nicht geladen werden.");
+      }
+    });
+    return () => controller.abort();
+  }, []);
+
+  const date = nextLesson ? new Date(nextLesson.starts_at) : null;
+  const end = date && nextLesson ? new Date(date.getTime() + Number(nextLesson.duration_minutes) * 60_000) : null;
 
   return <section className="role-workspace participant-workspace" aria-labelledby="participant-title">
-    <div className="role-workspace__intro"><p className="eyebrow">Mein Kurs</p><h2 id="participant-title">Hallo Lea.</h2><p>Hier findest du deine nächsten Termine und wichtige Änderungen.</p></div>
-    <article className="next-lesson-card"><div className="next-lesson-card__date"><strong>Mo</strong><span>07</span><small>Sept.</small></div><div><span className="status-pill">Nächste Lektion</span><h3>Deutsch A2 · Abendkurs</h3><p>{formatTime(nextLessonTime)}–19:30 Uhr · Schaffhausen 1 · Raum A1</p><p className="teacher-line">Lehrperson: Maria Keller</p></div></article>
+    <div className="role-workspace__intro"><p className="eyebrow">Mein Kurs</p><h2 id="participant-title">Hallo {userName}.</h2><p>Hier findest du deine nächsten Termine und wichtige Änderungen.</p></div>
+    {loadError ? <p className="planner-state" role="alert">{loadError}</p> : nextLesson && date && end ? <article className="next-lesson-card"><div className="next-lesson-card__date"><strong>{new Intl.DateTimeFormat("de-CH", { weekday: "short" }).format(date)}</strong><span>{new Intl.DateTimeFormat("de-CH", { day: "2-digit" }).format(date)}</span><small>{new Intl.DateTimeFormat("de-CH", { month: "short" }).format(date)}</small></div><div><span className="status-pill">{nextLesson.status === "cancelled" ? "Abgesagt" : "Nächste Lektion"}</span><h3>{nextLesson.course_language} {nextLesson.course_level}</h3><p>{new Intl.DateTimeFormat("de-CH", { hour: "2-digit", minute: "2-digit" }).format(date)}–{new Intl.DateTimeFormat("de-CH", { hour: "2-digit", minute: "2-digit" }).format(end)} Uhr · {nextLesson.location_name ?? "Raum wird bekanntgegeben"} · {nextLesson.room_name ?? ""}</p><p className="teacher-line">Lehrperson: {nextLesson.teacher_name}</p></div></article> : <p className="planner-state">Es ist keine kommende Lektion geplant.</p>}
     <div className="participant-grid"><article><span>Benachrichtigungen</span><h3>Erinnerungen</h3><label><input checked={emailEnabled} onChange={(event) => setEmailEnabled(event.target.checked)} type="checkbox" /> E-Mail vor dem Termin</label><label><input checked={pushEnabled} onChange={(event) => setPushEnabled(event.target.checked)} type="checkbox" /> Push bei Raum- oder Zeitänderung</label><button type="button" onClick={() => onNotice("Benachrichtigungseinstellungen gespeichert.")}>Einstellungen speichern →</button></article><article><span>Wichtig</span><h3>Änderungen sofort sichtbar</h3><p>Bei einer Absage oder Raumänderung erscheint die aktuelle Information hier. Zusätzlich wird die gewählte Erinnerung ausgelöst.</p><button type="button" onClick={() => onNotice("Aktuell gibt es keine Änderungen an deinem Kurs.")}>Aktuellen Status prüfen →</button></article></div>
   </section>;
 }
