@@ -3,12 +3,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireRole } from "@/lib/auth";
+import { courseLevelSchema } from "@/lib/course-levels";
 import { db } from "@/lib/database";
 
 const createCourseSchema = z.object({
   code: z.string().trim().min(5).max(40).regex(/^[A-Z0-9]+$/),
   language: z.string().trim().min(2).max(60),
-  level: z.enum(["A0", "A1", "A2", "B1", "B2", "C1", "C2"]),
+  level: courseLevelSchema,
   teacherId: z.uuid(),
   standardRoomId: z.uuid().nullable(),
   durationMinutes: z.number().int().min(15).max(360).multipleOf(15),

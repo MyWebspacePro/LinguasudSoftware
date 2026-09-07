@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireRole } from "@/lib/auth";
+import { courseLevelSchema } from "@/lib/course-levels";
 import { db } from "@/lib/database";
 
-const levelSchema = z.enum(["A0", "A1", "A2", "B1", "B2", "C1", "C2"]);
 const updateCourseSchema = z.object({
-  level: levelSchema.optional(),
+  level: courseLevelSchema.optional(),
   code: z.string().trim().min(5).max(40).regex(/^[A-Z0-9]+$/).optional(),
 }).refine((value) => value.level !== undefined || value.code !== undefined, { message: "Mindestens eine Änderung ist erforderlich." });
 
