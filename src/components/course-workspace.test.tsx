@@ -24,6 +24,7 @@ describe("CourseWorkspace", () => {
     fireEvent.change(screen.getByLabelText("Kurskennung"), { target: { value: "MARKELDEA201" } });
     fireEvent.change(screen.getByLabelText("Sprache"), { target: { value: "Deutsch" } });
     fireEvent.change(screen.getByLabelText("Lehrperson"), { target: { value: "teacher-1" } });
+    fireEvent.change(screen.getByLabelText("Standardraum"), { target: { value: "room-1" } });
     fireEvent.click(screen.getByRole("button", { name: "Di" }));
     fireEvent.change(screen.getByLabelText("Dienstag Startzeit"), { target: { value: "19:15" } });
     fireEvent.click(screen.getByRole("button", { name: "Kurs speichern" }));
@@ -32,6 +33,7 @@ describe("CourseWorkspace", () => {
     const call = fetchMock.mock.calls.find(([url, init]) => url === "/api/courses" && init?.method === "POST");
     expect(JSON.parse(String(call?.[1]?.body))).toMatchObject({
       code: "MARKELDEA201",
+      standardRoomId: "room-1",
       schedules: [
         { weekday: 0, startTime: "18:00", durationMinutes: 90 },
         { weekday: 1, startTime: "19:15", durationMinutes: 90 },
