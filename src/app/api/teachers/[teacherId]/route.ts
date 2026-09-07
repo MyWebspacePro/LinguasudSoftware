@@ -5,7 +5,9 @@ import { z } from "zod";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/database";
 
-const updateSchema = z.object({ name: z.string().trim().min(2).max(120).optional(), email: z.email().optional(), phone: z.string().trim().max(40).nullable().optional(), street: z.string().trim().max(160).nullable().optional(), postalCode: z.string().trim().max(20).nullable().optional(), city: z.string().trim().max(100).nullable().optional(), teacherCode: z.string().trim().max(40).nullable().optional(), languages: z.array(z.string().trim().min(2).max(40)).max(20).optional(), specializations: z.array(z.string().trim().min(2).max(80)).max(30).optional(), notes: z.string().trim().max(5000).nullable().optional(), active: z.boolean().optional(), ratePerLesson: z.number().min(0).max(10000).nullable().optional() }).refine((value) => Object.keys(value).length > 0);
+const levelSchema = z.enum(["A0", "A1", "A2", "B1", "B2", "C1", "C2"]);
+const teachingLevelSchema = z.object({ language: z.string().trim().min(2).max(60), levels: z.array(levelSchema).min(1).max(7) });
+const updateSchema = z.object({ name: z.string().trim().min(2).max(120).optional(), email: z.email().optional(), phone: z.string().trim().max(40).nullable().optional(), street: z.string().trim().max(160).nullable().optional(), postalCode: z.string().trim().max(20).nullable().optional(), city: z.string().trim().max(100).nullable().optional(), teacherCode: z.string().trim().max(40).nullable().optional(), teachingLevels: z.array(teachingLevelSchema).max(30).optional(), notes: z.string().trim().max(5000).nullable().optional(), active: z.boolean().optional(), ratePerLesson: z.number().min(0).max(10000).nullable().optional() }).refine((value) => Object.keys(value).length > 0);
 
 export async function PATCH(request: Request, context: { params: Promise<{ teacherId: string }> }) {
   try {
@@ -17,7 +19,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ teach
     if (!existing) return NextResponse.json({ error: "Lehrperson wurde nicht gefunden." }, { status: 404 });
     const teacher = await sql.begin(async (transaction) => {
       const [user] = await transaction`UPDATE users SET name = COALESCE(${input.name ?? null}, name), email = COALESCE(${input.email?.toLowerCase() ?? null}, email) WHERE id = ${teacherId} RETURNING id, name, email, role`;
-      const [profile] = await transaction`INSERT INTO teacher_profiles (user_id) VALUES (${teacherId}) ON CONFLICT (user_id) DO UPDATE SET phone = COALESCE(${input.phone ?? null}, teacher_profiles.phone), street = COALESCE(${input.street ?? null}, teacher_profiles.street), postal_code = COALESCE(${input.postalCode ?? null}, teacher_profiles.postal_code), city = COALESCE(${input.city ?? null}, teacher_profiles.city), teacher_code = COALESCE(${input.teacherCode ?? null}, teacher_profiles.teacher_code), languages = COALESCE(${input.languages ?? null}, teacher_profiles.languages), specializations = COALESCE(${input.specializations ?? null}, teacher_profiles.specializations), notes = COALESCE(${input.notes ?? null}, teacher_profiles.notes), active = COALESCE(${input.active ?? null}, teacher_profiles.active), rate_per_lesson = COALESCE(${input.ratePerLesson ?? null}, teacher_profiles.rate_per_lesson), updated_at = now() RETURNING *`;
+      const [profile] = await transaction`INSERT INTO teacher_profiles (user_id) VALUES (${teacherId}) ON CONFLICT (user_id) DO UPDATE SET phone = CASE WHEN ${Object.prototype.hasOwnProperty.call(input, "phone")} THEN ${input.phone ?? null} ELSE teacher_profiles.phone END, street = CASE WHEN ${Object.prototype.hasOwnProperty.call(input, "street")} THEN ${input.street ?? null} ELSE teacher_profiles.street END, postal_code = CASE WHEN ${Object.prototype.hasOwnProperty.call(input, "postalCode")} THEN ${input.postalCode ?? null} ELSE teacher_profiles.postal_code END, city = CASE WHEN ${Object.prototype.hasOwnProperty.call(input, "city")} THEN ${input.city ?? null} ELSE teacher_profiles.city END, teacher_code = CASE WHEN ${Object.prototype.hasOwnProperty.call(input, "teacherCode")} THEN ${input.teacherCode ?? null} ELSE teacher_profiles.teacher_code END, notes = CASE WHEN ${Object.prototype.hasOwnProperty.call(input, "notes")} THEN ${input.notes ?? null} ELSE teacher_profiles.notes END, active = CASE WHEN ${Object.prototype.hasOwnProperty.call(input, "active")} THEN ${input.active ?? null} ELSE teacher_profiles.active END, rate_per_lesson = CASE WHEN ${Object.prototype.hasOwnProperty.call(input, "ratePerLesson")} THEN ${input.ratePerLesson ?? null} ELSE teacher_profiles.rate_per_lesson END, updated_at = now() RETURNING *`;
+      if (Object.prototype.hasOwnProperty.call(input, "teachingLevels")) {
+        await transaction`DELETE FROM teacher_teaching_levels WHERE teacher_id = ${teacherId}`;
+        for (const teaching of input.teachingLevels ?? []) {
+          for (const level of [...new Set(teaching.levels)]) {
+            await transaction`INSERT INTO teacher_teaching_levels (teacher_id, language, level) VALUES (${teacherId}, ${teaching.language}, ${level}) ON CONFLICT DO NOTHING`;
+          }
+        }
+      }
       await transaction`INSERT INTO change_history (id, entity_type, entity_id, event_type, summary, before_data, after_data, actor_id) VALUES (${randomUUID()}, 'teacher', ${teacherId}, 'updated', 'Lehrpersonendaten geändert', ${JSON.stringify(existing)}, ${JSON.stringify(input)}, ${actor.id})`;
       return { ...user, ...profile };
     });

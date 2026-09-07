@@ -40,6 +40,10 @@ function isoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function qualificationLevel(level: string) {
+  return level.slice(0, 2).replace("+", "");
+}
+
 export async function GET() {
   try {
     const user = await requireRole("office", "teacher");
@@ -57,6 +61,14 @@ export async function POST(request: Request) {
     await requireRole("office");
     const payload = createCourseSchema.parse(await request.json());
     const sql = db();
+    const [qualification] = await sql`
+      SELECT 1 FROM teacher_teaching_levels
+      WHERE teacher_id = ${payload.teacherId}
+        AND lower(language) = lower(${payload.language})
+        AND level = ${qualificationLevel(payload.level)}
+      LIMIT 1
+    `;
+    if (!qualification) return NextResponse.json({ error: `Die Lehrperson ist für ${payload.language} ${payload.level} nicht qualifiziert.` }, { status: 409 });
     const course = await sql.begin(async (transaction) => {
       const [createdCourse] = await transaction`
         INSERT INTO courses (id, code, language, level, teacher_id, standard_room_id, duration_minutes, starts_on, status)

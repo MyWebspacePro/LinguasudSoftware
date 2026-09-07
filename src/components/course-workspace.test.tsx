@@ -11,7 +11,7 @@ describe("CourseWorkspace", () => {
       const url = String(input);
       if (url === "/api/courses" && init?.method === "POST") return { ok: true, json: async () => ({ course: { id: "course-1" } }) };
       if (url === "/api/courses") return { ok: true, json: async () => ({ courses: [] }) };
-      if (url === "/api/users?role=teacher") return { ok: true, json: async () => ({ users: [{ id: "teacher-1", name: "Mia Muster" }] }) };
+      if (url === "/api/teachers") return { ok: true, json: async () => ({ teachers: [{ id: "teacher-1", name: "Mia Muster", teaching_levels: [{ language: "Deutsch", levels: ["A1"] }] }] }) };
       if (url === "/api/rooms") return { ok: true, json: async () => ({ rooms: [{ id: "room-1", name: "A1", location_name: "Schaffhausen" }] }) };
       if (url === "/api/course-schedules") return { ok: true, json: async () => ({ schedules: [] }) };
       return { ok: false, json: async () => ({ error: "Unbekannte Anfrage" }) };
@@ -48,7 +48,7 @@ describe("CourseWorkspace", () => {
       const url = String(input);
       if (url === "/api/courses/course-1" && init?.method === "PATCH") return { ok: true, json: async () => ({ course }) };
       if (url === "/api/courses") return { ok: true, json: async () => ({ courses: [course] }) };
-      if (url === "/api/users?role=teacher") return { ok: true, json: async () => ({ users: [{ id: "teacher-1", name: "Mia Muster" }] }) };
+      if (url === "/api/teachers") return { ok: true, json: async () => ({ teachers: [{ id: "teacher-1", name: "Mia Muster", teaching_levels: [{ language: "Deutsch", levels: ["A1"] }] }] }) };
       if (url === "/api/rooms") return { ok: true, json: async () => ({ rooms: [{ id: "room-1", name: "A1", location_name: "Schaffhausen" }] }) };
       if (url === "/api/course-schedules" && init?.method === "PUT") return { ok: true, json: async () => ({ schedule }) };
       if (url === "/api/course-schedules" && init?.method === "POST") return { ok: true, json: async () => ({ schedule: { ...schedule, id: "schedule-2" } }) };

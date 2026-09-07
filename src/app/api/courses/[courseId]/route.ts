@@ -17,9 +17,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ cours
     const input = updateCourseSchema.parse(await request.json());
     if (input.code && user.role !== "office") return NextResponse.json({ error: "Nur das Büro darf Kurskennungen ändern." }, { status: 403 });
     const [course] = user.role === "office"
-      ? await db()`SELECT id FROM courses WHERE id = ${courseId}`
-      : await db()`SELECT id FROM courses WHERE id = ${courseId} AND teacher_id = ${user.id}`;
+      ? await db()`SELECT id, teacher_id, language, level FROM courses WHERE id = ${courseId}`
+      : await db()`SELECT id, teacher_id, language, level FROM courses WHERE id = ${courseId} AND teacher_id = ${user.id}`;
     if (!course) return NextResponse.json({ error: "Kurs wurde nicht gefunden." }, { status: 404 });
+    const requestedLevel = input.level ?? course.level;
+    const qualificationLevel = requestedLevel.slice(0, 2).replace("+", "");
+    const [qualification] = await db()`SELECT 1 FROM teacher_teaching_levels WHERE teacher_id = ${course.teacher_id} AND lower(language) = lower(${course.language}) AND level = ${qualificationLevel} LIMIT 1`;
+    if (!qualification) return NextResponse.json({ error: `Die Lehrperson ist für ${course.language} ${requestedLevel} nicht qualifiziert.` }, { status: 409 });
     const [updated] = await db()`UPDATE courses SET level = COALESCE(${input.level ?? null}, level), code = COALESCE(${input.code ?? null}, code) WHERE id = ${courseId} RETURNING *`;
     return NextResponse.json({ course: updated });
   } catch (error) {
