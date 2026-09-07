@@ -21,7 +21,8 @@ describe("PeopleWorkspace", () => {
 
     await screen.findByText("Lea Baumann");
     fireEvent.click(screen.getByRole("button", { name: /Teilnehmer anlegen/ }));
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Mira Frei" } });
+    fireEvent.change(screen.getByLabelText("Vorname"), { target: { value: "Mira" } });
+    fireEvent.change(screen.getByLabelText("Nachname"), { target: { value: "Frei" } });
     fireEvent.change(screen.getByLabelText("E-Mail"), { target: { value: "mira@example.test" } });
     fireEvent.change(screen.getByLabelText("Startpasswort"), { target: { value: "SicheresPasswort12" } });
     fireEvent.click(screen.getByRole("button", { name: "Zugang anlegen" }));
@@ -73,5 +74,36 @@ describe("PeopleWorkspace", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/enrollments/enrollment-1/pauses", expect.objectContaining({ method: "POST" })));
     const pauseCall = fetchMock.mock.calls.find(([url, init]) => url === "/api/enrollments/enrollment-1/pauses" && init?.method === "POST");
     expect(JSON.parse(String(pauseCall?.[1]?.body))).toEqual({ startsOn: "2026-09-10", endsOn: "2026-09-20", reason: "Ferien" });
+  });
+
+  it("submits teacher qualifications as structured language ranges", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/teachers" && init?.method === "POST") return { ok: true, json: async () => ({ teacher: { id: "teacher-2" } }) };
+      if (url === "/api/teachers") return { ok: true, json: async () => ({ teachers: [] }) };
+      if (url === "/api/courses") return { ok: true, json: async () => ({ courses: [] }) };
+      if (url === "/api/enrollments") return { ok: true, json: async () => ({ enrollments: [] }) };
+      return { ok: false, json: async () => ({ error: "Unbekannte Anfrage" }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PeopleWorkspace mode="teachers" />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Lehrperson anlegen/ }));
+    fireEvent.change(screen.getByLabelText("Vorname"), { target: { value: "Mia" } });
+    fireEvent.change(screen.getByLabelText("Nachname"), { target: { value: "Muster" } });
+    fireEvent.change(screen.getByLabelText("E-Mail"), { target: { value: "mia@example.test" } });
+    fireEvent.change(screen.getByLabelText("1. Sprache"), { target: { value: "Deutsch" } });
+    fireEvent.change(screen.getByLabelText("1. Niveau von"), { target: { value: "A1" } });
+    fireEvent.change(screen.getByLabelText("1. Niveau bis"), { target: { value: "C1" } });
+    fireEvent.click(screen.getByRole("button", { name: "+ Sprache hinzufügen" }));
+    fireEvent.change(screen.getByLabelText("2. Sprache"), { target: { value: "Englisch" } });
+    fireEvent.change(screen.getByLabelText("2. Niveau von"), { target: { value: "B1" } });
+    fireEvent.change(screen.getByLabelText("2. Niveau bis"), { target: { value: "B2" } });
+    fireEvent.change(screen.getByLabelText("Startpasswort"), { target: { value: "SicheresPasswort12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Zugang anlegen" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/teachers", expect.objectContaining({ method: "POST" })));
+    const teacherCall = fetchMock.mock.calls.find(([url, init]) => url === "/api/teachers" && init?.method === "POST");
+    expect(JSON.parse(String(teacherCall?.[1]?.body))).toMatchObject({ firstName: "Mia", lastName: "Muster", teachingLevels: [{ language: "Deutsch", fromLevel: "A1", toLevel: "C1" }, { language: "Englisch", fromLevel: "B1", toLevel: "B2" }] });
   });
 });

@@ -468,6 +468,17 @@ button {
 .form-grid textarea { width: 100%; resize: vertical; padding: 9px; border: 1px solid var(--border); border-radius: 6px; background: white; color: var(--ink); font: inherit; font-size: 0.82rem; }
 .form-hint { margin: 14px 0 0; padding: 9px 11px; border-radius: 7px; background: #fff6e8; color: #8a5d24; font-size: 0.75rem; line-height: 1.45; }
 .form-grid__full { grid-column: 1 / -1; }
+.field-label { display: block; color: var(--ink-soft); font-size: 0.73rem; font-weight: 750; }
+.qualification-fields, .notes-fields { display: grid; gap: 8px; }
+.qualification-row { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(105px, .7fr) minmax(105px, .7fr) auto; gap: 8px; align-items: end; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: #f8fbf9; }
+.qualification-remove { align-self: end; padding: 8px 9px; color: #a2382e; font-size: 0.68rem; }
+.qualification-add { justify-self: start; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: #f5f8f6; color: var(--teal-deep); font-size: 0.72rem; }
+.qualification-fields > small, .notes-fields > small { color: var(--ink-soft); font-size: 0.69rem; }
+.notes-history { display: grid; gap: 7px; max-height: 180px; overflow: auto; padding: 9px; border: 1px solid var(--border); border-radius: 7px; background: #f8fbf9; }
+.note-entry { padding-bottom: 7px; border-bottom: 1px solid var(--border); }
+.note-entry:last-child { padding-bottom: 0; border-bottom: 0; }
+.note-entry p { margin: 0 0 3px; color: var(--ink); font-size: 0.78rem; line-height: 1.4; white-space: pre-wrap; }
+.note-entry small { color: var(--ink-soft); font-size: 0.67rem; }
 .history-list { margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border); }
 .history-list > strong { color: var(--ink); font-size: 0.8rem; }
 .history-list p { display: flex; justify-content: space-between; gap: 12px; margin: 8px 0 0; color: var(--ink-soft); font-size: 0.73rem; }
@@ -590,6 +601,9 @@ button {
   .enrollment-row { flex-direction: column; }
   .enrollment-row__actions { justify-content: flex-start; }
   .form-grid { grid-template-columns: 1fr; }
+  .qualification-row { grid-template-columns: 1fr 1fr; }
+  .qualification-row label:first-child { grid-column: 1 / -1; }
+  .qualification-remove { justify-self: start; }
   .teacher-lesson, .next-lesson-card { align-items: flex-start; flex-direction: column; }
   .teacher-grid, .participant-grid { grid-template-columns: 1fr; }
   .upcoming-lessons article { grid-template-columns: 1fr; gap: 5px; }

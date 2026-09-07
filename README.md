@@ -41,6 +41,8 @@ src/
 
 Server Components sind der Standard. `"use client"` sollte nur dort eingesetzt werden, wo Browser-APIs, lokaler Zustand oder Interaktionen benötigt werden.
 
+Das relationale Datenmodell und die verfügbaren Querverweise zwischen Kursen, Räumen, Standorten, Lehrpersonen, Teilnehmenden, Lektionen und Einschreibungen sind in [`docs/data-model.md`](docs/data-model.md) dokumentiert.
+
 ## Umgebungsvariablen
 
 Neue Variablen werden in `.env.example` dokumentiert und in `src/lib/env.ts` validiert. Geheimnisse gehören ausschließlich in `.env.local` und werden nicht eingecheckt.

@@ -81,12 +81,21 @@ export async function GET(request: Request) {
         enrollments.id AS enrollment_id,
         enrollments.participant_id,
         users.name AS participant_name,
+        participant_profiles.first_name AS participant_first_name,
+        participant_profiles.last_name AS participant_last_name,
+        json_build_object('id', users.id, 'name', users.name, 'email', users.email, 'firstName', participant_profiles.first_name, 'lastName', participant_profiles.last_name) AS participant,
+        courses.id AS course_id,
+        courses.code AS course_code,
+        courses.language AS course_language,
+        courses.level AS course_level,
         attendance.id,
         attendance.status,
         attendance.confirmed_by,
         attendance.confirmed_at
       FROM enrollments
       JOIN users ON users.id = enrollments.participant_id
+      LEFT JOIN participant_profiles ON participant_profiles.user_id = users.id
+      JOIN courses ON courses.id = enrollments.course_id
       LEFT JOIN attendance
         ON attendance.enrollment_id = enrollments.id
         AND attendance.lesson_id = ${lesson.id}

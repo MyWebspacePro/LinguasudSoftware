@@ -48,8 +48,8 @@ export async function GET() {
   try {
     const user = await requireRole("office", "teacher");
     const courses = user.role === "office"
-      ? await db()`SELECT courses.*, users.name AS teacher_name FROM courses JOIN users ON users.id = courses.teacher_id ORDER BY courses.code`
-      : await db()`SELECT courses.*, users.name AS teacher_name FROM courses JOIN users ON users.id = courses.teacher_id WHERE courses.teacher_id = ${user.id} ORDER BY courses.code`;
+      ? await db()`SELECT c.*, users.name AS teacher_name, users.email AS teacher_email, json_build_object('id', users.id, 'name', users.name, 'email', users.email, 'salutation', tp.salutation, 'firstName', tp.first_name, 'lastName', tp.last_name, 'gender', tp.gender) AS teacher, CASE WHEN room.id IS NULL THEN NULL ELSE json_build_object('id', room.id, 'name', room.name, 'capacity', room.capacity, 'location', json_build_object('id', location.id, 'name', location.name, 'address', location.address)) END AS standard_room, COALESCE((SELECT json_agg(json_build_object('id', cs.id, 'courseId', cs.course_id, 'weekday', cs.weekday, 'startTime', cs.start_time, 'durationMinutes', cs.duration_minutes) ORDER BY cs.weekday, cs.start_time) FROM course_schedules cs WHERE cs.course_id = c.id), '[]') AS schedules, (SELECT count(*)::int FROM enrollments e WHERE e.course_id = c.id AND e.active = true) AS active_participant_count FROM courses c JOIN users ON users.id = c.teacher_id LEFT JOIN teacher_profiles tp ON tp.user_id = users.id LEFT JOIN rooms room ON room.id = c.standard_room_id LEFT JOIN locations location ON location.id = room.location_id ORDER BY c.code`
+      : await db()`SELECT c.*, users.name AS teacher_name, users.email AS teacher_email, json_build_object('id', users.id, 'name', users.name, 'email', users.email, 'salutation', tp.salutation, 'firstName', tp.first_name, 'lastName', tp.last_name, 'gender', tp.gender) AS teacher, CASE WHEN room.id IS NULL THEN NULL ELSE json_build_object('id', room.id, 'name', room.name, 'capacity', room.capacity, 'location', json_build_object('id', location.id, 'name', location.name, 'address', location.address)) END AS standard_room, COALESCE((SELECT json_agg(json_build_object('id', cs.id, 'courseId', cs.course_id, 'weekday', cs.weekday, 'startTime', cs.start_time, 'durationMinutes', cs.duration_minutes) ORDER BY cs.weekday, cs.start_time) FROM course_schedules cs WHERE cs.course_id = c.id), '[]') AS schedules, (SELECT count(*)::int FROM enrollments e WHERE e.course_id = c.id AND e.active = true) AS active_participant_count FROM courses c JOIN users ON users.id = c.teacher_id LEFT JOIN teacher_profiles tp ON tp.user_id = users.id LEFT JOIN rooms room ON room.id = c.standard_room_id LEFT JOIN locations location ON location.id = room.location_id WHERE c.teacher_id = ${user.id} ORDER BY c.code`;
     return NextResponse.json({ courses });
   } catch {
     return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
@@ -61,6 +61,10 @@ export async function POST(request: Request) {
     await requireRole("office");
     const payload = createCourseSchema.parse(await request.json());
     const sql = db();
+    const [teacher] = await sql`SELECT id FROM users WHERE id = ${payload.teacherId} AND role = 'teacher'`;
+    if (!teacher) return NextResponse.json({ error: "Lehrperson wurde nicht gefunden." }, { status: 404 });
+    const [room] = await sql`SELECT id FROM rooms WHERE id = ${payload.standardRoomId} AND active = true`;
+    if (!room) return NextResponse.json({ error: "Standardraum ist nicht verfügbar." }, { status: 400 });
     const [qualification] = await sql`
       SELECT 1 FROM teacher_teaching_levels
       WHERE teacher_id = ${payload.teacherId}

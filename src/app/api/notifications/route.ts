@@ -11,7 +11,9 @@ export async function GET() {
     const tasks = await db()`
       SELECT t.id, t.task_type, t.title, t.description, t.created_at,
              t.entity_id AS course_id, c.code AS course_code,
-             c.language, c.level, actor.name AS actor_name
+             c.language, c.level, actor.name AS actor_name,
+             CASE WHEN c.id IS NULL THEN NULL ELSE json_build_object('id', c.id, 'code', c.code, 'language', c.language, 'level', c.level, 'status', c.status, 'teacherId', c.teacher_id, 'standardRoomId', c.standard_room_id) END AS course,
+             CASE WHEN actor.id IS NULL THEN NULL ELSE json_build_object('id', actor.id, 'name', actor.name, 'email', actor.email) END AS actor
       FROM office_tasks t
       LEFT JOIN courses c ON c.id = t.entity_id AND t.entity_type = 'course'
       LEFT JOIN users actor ON actor.id = t.created_by

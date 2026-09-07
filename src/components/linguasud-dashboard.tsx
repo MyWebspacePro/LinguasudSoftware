@@ -39,7 +39,7 @@ const navigation = [
 type View = (typeof navigation)[number][0];
 type Move = { lessonId: string; roomId: string; startMinutes: number };
 type PlannerStatus = "loading" | "ready" | "error";
-type PlannerLesson = Omit<DemoLesson, "participantCount"> & { participantCount: number | null };
+type PlannerLesson = Omit<DemoLesson, "participantCount"> & { participantCount: number | null; standardLocationId?: string | null; standardLocationName?: string | null };
 type PlannerRoom = Room;
 type DashboardUser = { name: string; role: UserRole };
 
@@ -63,6 +63,8 @@ type ApiLesson = {
   duration_minutes: number | string;
   participant_count: number | string;
   status: PlannerLesson["status"];
+  standard_location_id?: string | null;
+  standard_location_name?: string | null;
 };
 
 function overlaps(startA: number, endA: number, startB: number, endB: number) {
@@ -161,6 +163,8 @@ function toPlannerLessons(apiLessons: ApiLesson[]): PlannerLesson[] {
       startMinutes,
       durationMinutes: Number(lesson.duration_minutes),
       status: lesson.status,
+      standardLocationId: lesson.standard_location_id,
+      standardLocationName: lesson.standard_location_name,
     };
   });
 }
@@ -259,6 +263,10 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
     }
     if (lesson.participantCount !== null && lesson.participantCount > targetRoom.capacity) {
       setNotice(`${targetRoom.name} ist mit ${targetRoom.capacity} Plätzen zu klein für diesen Kurs.`);
+      return;
+    }
+    if (lesson.standardLocationName === "Winterthur" && targetRoom.locationId !== lesson.standardLocationId) {
+      setNotice("Winterthur-Kurse müssen am Standort Winterthur bleiben.");
       return;
     }
 

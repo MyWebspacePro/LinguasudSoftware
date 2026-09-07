@@ -7,9 +7,12 @@ import { db } from "@/lib/database";
 
 export async function GET() {
   try {
-    await requireRole("office", "teacher");
+    const user = await requireRole("office", "teacher");
     const rooms = await db()`
-      SELECT rooms.id, rooms.name, rooms.capacity, locations.id AS location_id, locations.name AS location_name
+      SELECT rooms.id, rooms.name, rooms.capacity, rooms.active, locations.id AS location_id, locations.name AS location_name, locations.address AS location_address,
+             json_build_object('id', locations.id, 'name', locations.name, 'address', locations.address) AS location,
+             COALESCE((SELECT json_agg(json_build_object('id', c.id, 'code', c.code, 'language', c.language, 'level', c.level, 'status', c.status, 'teacher', json_build_object('id', t.id, 'name', t.name, 'email', t.email), 'activeParticipantCount', (SELECT count(*)::int FROM enrollments e WHERE e.course_id = c.id AND e.active = true)) ORDER BY c.code) FROM courses c JOIN users t ON t.id = c.teacher_id WHERE c.standard_room_id = rooms.id AND (${user.role === "office"} OR c.teacher_id = ${user.id})), '[]') AS courses,
+             (SELECT count(*)::int FROM lessons l JOIN courses lc ON lc.id = l.course_id WHERE l.room_id = rooms.id AND l.status = 'scheduled' AND (${user.role === "office"} OR l.teacher_id = ${user.id} OR lc.teacher_id = ${user.id})) AS scheduled_lesson_count
       FROM rooms JOIN locations ON locations.id = rooms.location_id
       WHERE rooms.active = true
       ORDER BY locations.sort_order, rooms.name

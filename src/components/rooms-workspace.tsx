@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 type Location = { id: string; name: string; address: string; sort_order: number };
-type Room = { id: string; name: string; capacity: number; location_id: string; location_name: string };
+type Room = { id: string; name: string; capacity: number; active?: boolean; location_id: string; location_name: string; location_address?: string; courses?: Array<{ id: string; code: string; language: string; level: string; status: string }> };
 
 function errorMessage(payload: unknown, fallback: string) {
   return typeof payload === "object" && payload !== null && "error" in payload && typeof payload.error === "string" ? payload.error : fallback;

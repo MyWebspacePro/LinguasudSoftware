@@ -29,7 +29,10 @@ export async function GET() {
         locations.name AS location_name,
         locations.address AS location_address,
         teachers.id AS teacher_id,
-        teachers.name AS teacher_name
+        teachers.name AS teacher_name,
+        json_build_object('id', courses.id, 'code', courses.code, 'language', courses.language, 'level', courses.level, 'status', courses.status) AS course,
+        CASE WHEN rooms.id IS NULL THEN NULL ELSE json_build_object('id', rooms.id, 'name', rooms.name, 'capacity', rooms.capacity, 'location', json_build_object('id', locations.id, 'name', locations.name, 'address', locations.address)) END AS room,
+        json_build_object('id', teachers.id, 'name', teachers.name, 'email', teachers.email) AS teacher
       FROM lessons
       JOIN enrollments
         ON enrollments.course_id = lessons.course_id

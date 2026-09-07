@@ -11,6 +11,34 @@ const updateCourseSchema = z.object({
   code: z.string().trim().min(5).max(40).regex(/^[A-Z0-9]+$/).optional(),
 }).refine((value) => value.level !== undefined || value.code !== undefined, { message: "Mindestens eine Änderung ist erforderlich." });
 
+/**
+ * Return one complete course aggregate. Every related record keeps its
+ * database id so the course can be followed into teachers, rooms, lessons,
+ * participants, attendance and history without parsing display strings.
+ */
+export async function GET(_request: Request, context: { params: Promise<{ courseId: string }> }) {
+  try {
+    const user = await requireRole("office", "teacher");
+    const { courseId } = await context.params;
+    const sql = db();
+    const [course] = user.role === "office"
+      ? await sql`SELECT c.*, json_build_object('id', teacher.id, 'name', teacher.name, 'email', teacher.email, 'salutation', tp.salutation, 'firstName', tp.first_name, 'lastName', tp.last_name, 'gender', tp.gender, 'teacherCode', tp.teacher_code) AS teacher, CASE WHEN room.id IS NULL THEN NULL ELSE json_build_object('id', room.id, 'name', room.name, 'capacity', room.capacity, 'location', json_build_object('id', location.id, 'name', location.name, 'address', location.address)) END AS standard_room FROM courses c JOIN users teacher ON teacher.id = c.teacher_id LEFT JOIN teacher_profiles tp ON tp.user_id = teacher.id LEFT JOIN rooms room ON room.id = c.standard_room_id LEFT JOIN locations location ON location.id = room.location_id WHERE c.id = ${courseId}`
+      : await sql`SELECT c.*, json_build_object('id', teacher.id, 'name', teacher.name, 'email', teacher.email, 'salutation', tp.salutation, 'firstName', tp.first_name, 'lastName', tp.last_name, 'gender', tp.gender, 'teacherCode', tp.teacher_code) AS teacher, CASE WHEN room.id IS NULL THEN NULL ELSE json_build_object('id', room.id, 'name', room.name, 'capacity', room.capacity, 'location', json_build_object('id', location.id, 'name', location.name, 'address', location.address)) END AS standard_room FROM courses c JOIN users teacher ON teacher.id = c.teacher_id LEFT JOIN teacher_profiles tp ON tp.user_id = teacher.id LEFT JOIN rooms room ON room.id = c.standard_room_id LEFT JOIN locations location ON location.id = room.location_id WHERE c.id = ${courseId} AND c.teacher_id = ${user.id}`;
+    if (!course) return NextResponse.json({ error: "Kurs wurde nicht gefunden." }, { status: 404 });
+    const [schedules, lessons, enrollments, history, qualifications] = await Promise.all([
+      sql`SELECT id, course_id, weekday, start_time, duration_minutes, created_at, updated_at FROM course_schedules WHERE course_id = ${courseId} ORDER BY weekday, start_time`,
+      sql`SELECT l.*, json_build_object('id', r.id, 'name', r.name, 'capacity', r.capacity, 'location', json_build_object('id', loc.id, 'name', loc.name, 'address', loc.address)) AS room, json_build_object('id', t.id, 'name', t.name, 'email', t.email) AS teacher, (SELECT count(*)::int FROM enrollments e WHERE e.course_id = l.course_id AND e.active = true) AS participant_count FROM lessons l LEFT JOIN rooms r ON r.id = l.room_id LEFT JOIN locations loc ON loc.id = r.location_id JOIN users t ON t.id = l.teacher_id WHERE l.course_id = ${courseId} ORDER BY l.starts_at`,
+      sql`SELECT e.*, json_build_object('id', p.id, 'name', p.name, 'email', p.email, 'salutation', pp.salutation, 'firstName', pp.first_name, 'lastName', pp.last_name, 'gender', pp.gender) AS participant, COALESCE((SELECT json_agg(json_build_object('id', a.id, 'lessonId', a.lesson_id, 'status', a.status, 'confirmedBy', a.confirmed_by, 'confirmedAt', a.confirmed_at) ORDER BY a.lesson_id) FROM attendance a JOIN lessons al ON al.id = a.lesson_id WHERE a.enrollment_id = e.id AND al.course_id = e.course_id), '[]') AS attendance, COALESCE((SELECT json_agg(json_build_object('id', pause.id, 'startsOn', pause.starts_on, 'endsOn', pause.ends_on, 'reason', pause.reason) ORDER BY pause.starts_on DESC) FROM enrollment_pauses pause WHERE pause.enrollment_id = e.id), '[]') AS pauses FROM enrollments e JOIN users p ON p.id = e.participant_id LEFT JOIN participant_profiles pp ON pp.user_id = p.id WHERE e.course_id = ${courseId} ORDER BY e.active DESC, p.name`,
+      sql`SELECT h.id, h.entity_type, h.entity_id, h.event_type, h.summary, h.before_data, h.after_data, h.actor_id, h.occurred_at, actor.name AS actor_name FROM change_history h LEFT JOIN users actor ON actor.id = h.actor_id WHERE h.entity_type = 'course' AND h.entity_id = ${courseId} ORDER BY h.occurred_at DESC`,
+      sql`SELECT teacher_id, language, json_agg(level ORDER BY level) AS levels, min(level) AS from_level, max(level) AS to_level FROM teacher_teaching_levels WHERE teacher_id = ${course.teacher_id} GROUP BY teacher_id, language ORDER BY language`,
+    ]);
+    return NextResponse.json({ course: { ...course, schedules, lessons, enrollments, history, teacher: { ...course.teacher, qualifications } } });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") return NextResponse.json({ error: "Nicht berechtigt." }, { status: 403 });
+    return NextResponse.json({ error: "Kurs konnte nicht geladen werden." }, { status: 500 });
+  }
+}
+
 export async function PATCH(request: Request, context: { params: Promise<{ courseId: string }> }) {
   try {
     const user = await requireRole("office", "teacher");

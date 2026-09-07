@@ -31,6 +31,8 @@ export async function GET() {
           SELECT enrollments.*, courses.code AS course_code, courses.language AS course_language,
                  courses.level AS course_level, courses.status AS course_status,
                  participants.name AS participant_name, participants.email AS participant_email,
+                 json_build_object('id', participants.id, 'name', participants.name, 'email', participants.email, 'firstName', pp.first_name, 'lastName', pp.last_name, 'salutation', pp.salutation, 'gender', pp.gender) AS participant,
+                 json_build_object('id', courses.id, 'code', courses.code, 'language', courses.language, 'level', courses.level, 'status', courses.status, 'teacher', json_build_object('id', teachers.id, 'name', teachers.name, 'email', teachers.email), 'standardRoomId', courses.standard_room_id, 'schedules', COALESCE((SELECT json_agg(json_build_object('id', cs.id, 'weekday', cs.weekday, 'startTime', cs.start_time, 'durationMinutes', cs.duration_minutes) ORDER BY cs.weekday, cs.start_time) FROM course_schedules cs WHERE cs.course_id = courses.id), '[]')) AS course,
                  (SELECT json_build_object(
                     'present', count(*) FILTER (WHERE a.status = 'present')::int,
                     'excused', count(*) FILTER (WHERE a.status = 'excused')::int,
@@ -42,6 +44,8 @@ export async function GET() {
           FROM enrollments
           JOIN courses ON courses.id = enrollments.course_id
           JOIN users AS participants ON participants.id = enrollments.participant_id
+          JOIN users AS teachers ON teachers.id = courses.teacher_id
+          LEFT JOIN participant_profiles pp ON pp.user_id = participants.id
           ORDER BY participants.name, courses.code
         `
       : user.role === "teacher"
@@ -49,6 +53,8 @@ export async function GET() {
             SELECT enrollments.*, courses.code AS course_code, courses.language AS course_language,
                    courses.level AS course_level, courses.status AS course_status,
                    participants.name AS participant_name, participants.email AS participant_email,
+                   json_build_object('id', participants.id, 'name', participants.name, 'email', participants.email, 'firstName', pp.first_name, 'lastName', pp.last_name, 'salutation', pp.salutation, 'gender', pp.gender) AS participant,
+                   json_build_object('id', courses.id, 'code', courses.code, 'language', courses.language, 'level', courses.level, 'status', courses.status, 'teacher', json_build_object('id', teachers.id, 'name', teachers.name, 'email', teachers.email), 'standardRoomId', courses.standard_room_id, 'schedules', COALESCE((SELECT json_agg(json_build_object('id', cs.id, 'weekday', cs.weekday, 'startTime', cs.start_time, 'durationMinutes', cs.duration_minutes) ORDER BY cs.weekday, cs.start_time) FROM course_schedules cs WHERE cs.course_id = courses.id), '[]')) AS course,
                    (SELECT json_build_object(
                       'present', count(*) FILTER (WHERE a.status = 'present')::int,
                       'excused', count(*) FILTER (WHERE a.status = 'excused')::int,
@@ -60,12 +66,16 @@ export async function GET() {
             FROM enrollments
             JOIN courses ON courses.id = enrollments.course_id
             JOIN users AS participants ON participants.id = enrollments.participant_id
+            JOIN users AS teachers ON teachers.id = courses.teacher_id
+            LEFT JOIN participant_profiles pp ON pp.user_id = participants.id
             WHERE courses.teacher_id = ${user.id}
             ORDER BY participants.name, courses.code
           `
         : await sql`
             SELECT enrollments.*, courses.code AS course_code, courses.language AS course_language,
                    courses.level AS course_level, courses.status AS course_status,
+                   json_build_object('id', participants.id, 'name', participants.name, 'email', participants.email, 'firstName', pp.first_name, 'lastName', pp.last_name, 'salutation', pp.salutation, 'gender', pp.gender) AS participant,
+                   json_build_object('id', courses.id, 'code', courses.code, 'language', courses.language, 'level', courses.level, 'status', courses.status, 'teacher', json_build_object('id', teachers.id, 'name', teachers.name, 'email', teachers.email), 'standardRoomId', courses.standard_room_id, 'schedules', COALESCE((SELECT json_agg(json_build_object('id', cs.id, 'weekday', cs.weekday, 'startTime', cs.start_time, 'durationMinutes', cs.duration_minutes) ORDER BY cs.weekday, cs.start_time) FROM course_schedules cs WHERE cs.course_id = courses.id), '[]')) AS course,
                    (SELECT json_build_object(
                       'present', count(*) FILTER (WHERE a.status = 'present')::int,
                       'excused', count(*) FILTER (WHERE a.status = 'excused')::int,
@@ -76,6 +86,9 @@ export async function GET() {
                    COALESCE((SELECT json_agg(json_build_object('id', p.id, 'startsOn', p.starts_on, 'endsOn', p.ends_on, 'reason', p.reason) ORDER BY p.starts_on DESC) FROM enrollment_pauses p WHERE p.enrollment_id = enrollments.id), '[]') AS pauses
             FROM enrollments
             JOIN courses ON courses.id = enrollments.course_id
+            JOIN users AS participants ON participants.id = enrollments.participant_id
+            JOIN users AS teachers ON teachers.id = courses.teacher_id
+            LEFT JOIN participant_profiles pp ON pp.user_id = participants.id
             WHERE enrollments.participant_id = ${user.id}
             ORDER BY courses.code
           `;

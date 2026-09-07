@@ -21,6 +21,31 @@ const updateSchema = z.object({
   active: z.boolean().optional(),
 }).refine((value) => Object.keys(value).length > 0);
 
+/** Return one enrollment aggregate with stable participant, course, lesson and billing references. */
+export async function GET(_request: Request, { params }: { params: Promise<{ enrollmentId: string }> }) {
+  try {
+    const user = await requireRole("office", "teacher", "participant");
+    const { enrollmentId } = await params;
+    const sql = db();
+    const [enrollment] = user.role === "office"
+      ? await sql`SELECT e.*, json_build_object('id', p.id, 'name', p.name, 'email', p.email, 'firstName', pp.first_name, 'lastName', pp.last_name, 'salutation', pp.salutation, 'gender', pp.gender) AS participant, json_build_object('id', c.id, 'code', c.code, 'language', c.language, 'level', c.level, 'status', c.status, 'teacher', json_build_object('id', t.id, 'name', t.name, 'email', t.email), 'standardRoomId', c.standard_room_id) AS course FROM enrollments e JOIN users p ON p.id = e.participant_id JOIN courses c ON c.id = e.course_id JOIN users t ON t.id = c.teacher_id LEFT JOIN participant_profiles pp ON pp.user_id = p.id WHERE e.id = ${enrollmentId}`
+      : user.role === "teacher"
+        ? await sql`SELECT e.*, json_build_object('id', p.id, 'name', p.name, 'email', p.email, 'firstName', pp.first_name, 'lastName', pp.last_name, 'salutation', pp.salutation, 'gender', pp.gender) AS participant, json_build_object('id', c.id, 'code', c.code, 'language', c.language, 'level', c.level, 'status', c.status, 'teacher', json_build_object('id', t.id, 'name', t.name, 'email', t.email), 'standardRoomId', c.standard_room_id) AS course FROM enrollments e JOIN users p ON p.id = e.participant_id JOIN courses c ON c.id = e.course_id JOIN users t ON t.id = c.teacher_id LEFT JOIN participant_profiles pp ON pp.user_id = p.id WHERE e.id = ${enrollmentId} AND c.teacher_id = ${user.id}`
+        : await sql`SELECT e.*, json_build_object('id', p.id, 'name', p.name, 'email', p.email, 'firstName', pp.first_name, 'lastName', pp.last_name, 'salutation', pp.salutation, 'gender', pp.gender) AS participant, json_build_object('id', c.id, 'code', c.code, 'language', c.language, 'level', c.level, 'status', c.status, 'teacher', json_build_object('id', t.id, 'name', t.name, 'email', t.email), 'standardRoomId', c.standard_room_id) AS course FROM enrollments e JOIN users p ON p.id = e.participant_id JOIN courses c ON c.id = e.course_id JOIN users t ON t.id = c.teacher_id LEFT JOIN participant_profiles pp ON pp.user_id = p.id WHERE e.id = ${enrollmentId} AND e.participant_id = ${user.id}`;
+    if (!enrollment) return NextResponse.json({ error: "Kursteilnahme wurde nicht gefunden." }, { status: 404 });
+    const [lessons, attendance, pauses, history] = await Promise.all([
+      sql`SELECT l.id, l.course_id, l.room_id, l.teacher_id, l.starts_at, l.duration_minutes, l.status, l.cancellation_reason FROM lessons l WHERE l.course_id = ${enrollment.course_id} ORDER BY l.starts_at`,
+      sql`SELECT a.id, a.lesson_id, a.enrollment_id, a.status, a.confirmed_by, a.confirmed_at FROM attendance a WHERE a.enrollment_id = ${enrollmentId} ORDER BY a.confirmed_at DESC NULLS LAST`,
+      sql`SELECT id, enrollment_id, starts_on, ends_on, reason, created_by, created_at FROM enrollment_pauses WHERE enrollment_id = ${enrollmentId} ORDER BY starts_on DESC`,
+      sql`SELECT h.id, h.entity_type, h.entity_id, h.event_type, h.summary, h.before_data, h.after_data, h.actor_id, h.occurred_at FROM change_history h WHERE h.entity_type = 'enrollment' AND h.entity_id = ${enrollmentId} ORDER BY h.occurred_at DESC`,
+    ]);
+    return NextResponse.json({ enrollment: { ...enrollment, lessons, attendance, pauses, history } });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") return NextResponse.json({ error: "Nicht berechtigt." }, { status: 403 });
+    return NextResponse.json({ error: "Kursteilnahme konnte nicht geladen werden." }, { status: 500 });
+  }
+}
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ enrollmentId: string }> }) {
   try {
     const actor = await requireRole("office");
