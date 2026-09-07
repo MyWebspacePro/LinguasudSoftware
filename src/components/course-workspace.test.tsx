@@ -36,8 +36,8 @@ describe("CourseWorkspace", () => {
       code: "MARKELDEA201",
       standardRoomId: "room-1",
       schedules: [
-        { weekday: 0, startTime: "18:00", durationMinutes: 90 },
-        { weekday: 1, startTime: "19:15", durationMinutes: 90 },
+        { weekday: 0, startTime: "18:00" },
+        { weekday: 1, startTime: "19:15" },
       ],
     });
   });
@@ -79,7 +79,7 @@ describe("CourseWorkspace", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/course-schedules", expect.objectContaining({ method: "PUT" })));
     const scheduleUpdate = fetchMock.mock.calls.find(([url, init]) => url === "/api/course-schedules" && init?.method === "PUT");
-    expect(JSON.parse(String(scheduleUpdate?.[1]?.body))).toEqual({ id: "schedule-1", courseId: "course-1", weekday: 0, startTime: "19:15", durationMinutes: 90 });
+    expect(JSON.parse(String(scheduleUpdate?.[1]?.body))).toEqual({ id: "schedule-1", courseId: "course-1", weekday: 0, startTime: "19:15" });
 
     fireEvent.change(screen.getByLabelText("Neue Startzeit"), { target: { value: "20:00" } });
     fireEvent.click(screen.getByRole("button", { name: "Termin hinzufügen" }));

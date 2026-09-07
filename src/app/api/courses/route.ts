@@ -17,7 +17,6 @@ const createCourseSchema = z.object({
   schedules: z.array(z.object({
     weekday: z.number().int().min(0).max(6),
     startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-    durationMinutes: z.number().int().min(15).max(360).multipleOf(15),
   })).min(1).max(7).superRefine((schedules, context) => {
     const weekdays = new Set<number>();
     schedules.forEach((schedule, index) => {
@@ -82,7 +81,7 @@ export async function POST(request: Request) {
       for (const schedule of payload.schedules) {
         await transaction`
           INSERT INTO course_schedules (id, course_id, weekday, start_time, duration_minutes)
-          VALUES (${randomUUID()}, ${createdCourse.id}, ${schedule.weekday}, ${schedule.startTime}, ${schedule.durationMinutes})
+          VALUES (${randomUUID()}, ${createdCourse.id}, ${schedule.weekday}, ${schedule.startTime}, ${payload.durationMinutes})
         `;
         const firstDate = firstDateForWeekday(payload.startsOn, schedule.weekday);
         for (let week = 0; week < 52; week += 1) {
@@ -92,7 +91,7 @@ export async function POST(request: Request) {
           const [conflict] = await transaction<{ id: string }[]>`
             SELECT id FROM lessons
             WHERE status = 'scheduled'
-              AND starts_at < (${localStart}::timestamp AT TIME ZONE 'Europe/Zurich') + ${schedule.durationMinutes} * interval '1 minute'
+              AND starts_at < (${localStart}::timestamp AT TIME ZONE 'Europe/Zurich') + ${payload.durationMinutes} * interval '1 minute'
               AND starts_at + duration_minutes * interval '1 minute' > (${localStart}::timestamp AT TIME ZONE 'Europe/Zurich')
               AND (room_id = ${payload.standardRoomId} OR teacher_id = ${payload.teacherId})
             LIMIT 1
@@ -100,7 +99,7 @@ export async function POST(request: Request) {
           if (conflict) throw new Error("COURSE_SCHEDULE_CONFLICT");
           await transaction`
             INSERT INTO lessons (id, course_id, room_id, teacher_id, starts_at, duration_minutes, status)
-            VALUES (${randomUUID()}, ${createdCourse.id}, ${payload.standardRoomId}, ${payload.teacherId}, (${localStart}::timestamp AT TIME ZONE 'Europe/Zurich'), ${schedule.durationMinutes}, 'scheduled')
+            VALUES (${randomUUID()}, ${createdCourse.id}, ${payload.standardRoomId}, ${payload.teacherId}, (${localStart}::timestamp AT TIME ZONE 'Europe/Zurich'), ${payload.durationMinutes}, 'scheduled')
           `;
         }
       }

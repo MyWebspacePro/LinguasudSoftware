@@ -12,7 +12,6 @@ const scheduleFieldsSchema = z.object({
   courseId: z.uuid(),
   weekday: z.number().int().min(0).max(6),
   startTime: z.string().regex(timePattern, "Startzeit muss im Format HH:MM angegeben werden."),
-  durationMinutes: z.number().int().min(15).max(360).multipleOf(15),
 });
 
 const updateScheduleSchema = scheduleFieldsSchema.extend({ id: z.uuid() });
@@ -29,7 +28,7 @@ function isoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-async function createLessonsForSchedule(transaction: postgres.TransactionSql, course: { id: string; teacher_id: string; standard_room_id: string; starts_on: string }, schedule: { weekday: number; startTime: string; durationMinutes: number }) {
+async function createLessonsForSchedule(transaction: postgres.TransactionSql, course: { id: string; teacher_id: string; standard_room_id: string; starts_on: string; duration_minutes: number }, schedule: { weekday: number; startTime: string }) {
   const firstDate = firstDateForWeekday(String(course.starts_on).slice(0, 10), schedule.weekday);
   for (let week = 0; week < 52; week += 1) {
     const lessonDate = new Date(firstDate);
@@ -38,7 +37,7 @@ async function createLessonsForSchedule(transaction: postgres.TransactionSql, co
     const [conflict] = await transaction<{ id: string }[]>`
       SELECT id FROM lessons
       WHERE status = 'scheduled'
-        AND starts_at < (${localStart}::timestamp AT TIME ZONE 'Europe/Zurich') + ${schedule.durationMinutes} * interval '1 minute'
+              AND starts_at < (${localStart}::timestamp AT TIME ZONE 'Europe/Zurich') + ${course.duration_minutes} * interval '1 minute'
         AND starts_at + duration_minutes * interval '1 minute' > (${localStart}::timestamp AT TIME ZONE 'Europe/Zurich')
         AND (room_id = ${course.standard_room_id} OR teacher_id = ${course.teacher_id})
       LIMIT 1
@@ -46,7 +45,7 @@ async function createLessonsForSchedule(transaction: postgres.TransactionSql, co
     if (conflict) throw new Error("COURSE_SCHEDULE_CONFLICT");
     await transaction`
       INSERT INTO lessons (id, course_id, room_id, teacher_id, starts_at, duration_minutes, status)
-      VALUES (${randomUUID()}, ${course.id}, ${course.standard_room_id}, ${course.teacher_id}, (${localStart}::timestamp AT TIME ZONE 'Europe/Zurich'), ${schedule.durationMinutes}, 'scheduled')
+        VALUES (${randomUUID()}, ${course.id}, ${course.standard_room_id}, ${course.teacher_id}, (${localStart}::timestamp AT TIME ZONE 'Europe/Zurich'), ${course.duration_minutes}, 'scheduled')
     `;
   }
 }
@@ -87,13 +86,13 @@ export async function POST(request: Request) {
     await requireRole("office");
     const input = scheduleFieldsSchema.parse(await request.json());
     const sql = db();
-    const [course] = await sql<{ id: string; teacher_id: string; standard_room_id: string; starts_on: string }[]>`SELECT id, teacher_id, standard_room_id, starts_on FROM courses WHERE id = ${input.courseId}`;
+    const [course] = await sql<{ id: string; teacher_id: string; standard_room_id: string; starts_on: string; duration_minutes: number }[]>`SELECT id, teacher_id, standard_room_id, starts_on, duration_minutes FROM courses WHERE id = ${input.courseId}`;
     if (!course) return NextResponse.json({ error: "Kurs wurde nicht gefunden." }, { status: 404 });
     if (!course.standard_room_id) return NextResponse.json({ error: "Dem Kurs ist noch kein Standardraum zugewiesen." }, { status: 409 });
     const schedule = await sql.begin(async (transaction) => {
       const [createdSchedule] = await transaction`
         INSERT INTO course_schedules (id, course_id, weekday, start_time, duration_minutes)
-        VALUES (${randomUUID()}, ${input.courseId}, ${input.weekday}, ${input.startTime}, ${input.durationMinutes})
+        VALUES (${randomUUID()}, ${input.courseId}, ${input.weekday}, ${input.startTime}, ${course.duration_minutes})
         RETURNING *
       `;
       await createLessonsForSchedule(transaction, course, input);
@@ -110,7 +109,7 @@ export async function PUT(request: Request) {
     await requireRole("office");
     const input = updateScheduleSchema.parse(await request.json());
     const sql = db();
-    const [course] = await sql<{ id: string; teacher_id: string; standard_room_id: string; starts_on: string }[]>`SELECT id, teacher_id, standard_room_id, starts_on FROM courses WHERE id = ${input.courseId}`;
+    const [course] = await sql<{ id: string; teacher_id: string; standard_room_id: string; starts_on: string; duration_minutes: number }[]>`SELECT id, teacher_id, standard_room_id, starts_on, duration_minutes FROM courses WHERE id = ${input.courseId}`;
     if (!course) return NextResponse.json({ error: "Kurs wurde nicht gefunden." }, { status: 404 });
     if (!course.standard_room_id) return NextResponse.json({ error: "Dem Kurs ist noch kein Standardraum zugewiesen." }, { status: 409 });
     const [existing] = await sql<{ id: string; course_id: string; weekday: number }[]>`SELECT id, course_id, weekday FROM course_schedules WHERE id = ${input.id}`;
@@ -121,7 +120,7 @@ export async function PUT(request: Request) {
       const [updatedSchedule] = await transaction`
         UPDATE course_schedules
         SET course_id = ${input.courseId}, weekday = ${input.weekday}, start_time = ${input.startTime},
-            duration_minutes = ${input.durationMinutes}, updated_at = now()
+            duration_minutes = ${course.duration_minutes}, updated_at = now()
         WHERE id = ${input.id}
         RETURNING *
       `;
