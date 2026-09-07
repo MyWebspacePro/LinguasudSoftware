@@ -68,6 +68,10 @@ function overlaps(startA: number, endA: number, startB: number, endB: number) {
   return startA < endB && startB < endA;
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function roomLabel(roomId: string, rooms: PlannerRoom[], locations: Location[]) {
   const room = rooms.find((item) => item.id === roomId);
   const location = locations.find((item) => item.rooms.some((itemRoom) => itemRoom.id === roomId));
@@ -170,6 +174,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
   const [plannerStatus, setPlannerStatus] = useState<PlannerStatus>("loading");
   const [plannerError, setPlannerError] = useState<string | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
+  const [draggingLessonId, setDraggingLessonId] = useState<string | null>(null);
   const [lastMove, setLastMove] = useState<Move | null>(null);
   const [courseOpenRequest, setCourseOpenRequest] = useState(0);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
@@ -275,6 +280,16 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
     });
     if (hasBufferWarning && !window.confirm("Der 15-Minuten-Raumpuffer wird unterschritten. Trotzdem verschieben?")) return;
 
+    // Demo lessons use readable IDs instead of database UUIDs. They must still
+    // be movable in the preview; only real UUID-backed lessons are persisted.
+    if (!isUuid(lessonId) || !isUuid(roomId)) {
+      setLastMove({ lessonId, roomId: lesson.roomId, startMinutes: lesson.startMinutes });
+      setLessons((current) => current.map((item) => item.id === lessonId ? { ...item, roomId, startMinutes } : item));
+      setDraggingLessonId(null);
+      setNotice(`${lesson.courseCode} wurde im Demo-Raumplan verschoben.`);
+      return;
+    }
+
     try {
       const response = await fetch(`/api/lessons/${lessonId}`, {
         method: "PATCH",
@@ -286,6 +301,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
       if (!response.ok) throw new Error(payload.error ?? "Lektion konnte nicht verschoben werden.");
       setLastMove({ lessonId, roomId: lesson.roomId, startMinutes: lesson.startMinutes });
       setLessons((current) => current.map((item) => item.id === lessonId ? { ...item, roomId, startMinutes } : item));
+      setDraggingLessonId(null);
       setNotice(`${lesson.courseCode} wurde nach ${roomLabel(roomId, plannerRooms, plannerLocations)} verschoben.`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Lektion konnte nicht verschoben werden.");
@@ -294,7 +310,8 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
 
   function onRoomDrop(event: DragEvent<HTMLDivElement>, roomId: string) {
     event.preventDefault();
-    const lessonId = event.dataTransfer.getData("text/lesson-id");
+    const lessonId = event.dataTransfer.getData("text/lesson-id") || event.dataTransfer.getData("text/plain");
+    if (!lessonId) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     const rawSlot = Math.floor((event.clientY - bounds.top) / SLOT_HEIGHT);
     const slot = Math.max(0, Math.min(slots.length - 1, rawSlot));
@@ -363,7 +380,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
                     const roomLessons = lessonsForDay.filter((lesson) => lesson.roomId === room.id);
                     return <div className="room-column" key={room.id} onDragOver={(event) => event.preventDefault()} onDrop={(event) => onRoomDrop(event, room.id)}>
                       {slots.map((minute) => <div className="planner-slot" key={minute} />)}
-                      {roomLessons.map((lesson) => <button className={`lesson-card lesson-card--${lesson.status}`} draggable key={lesson.id} onClick={() => setSelectedLessonId(lesson.id)} onDragStart={(event) => event.dataTransfer.setData("text/lesson-id", lesson.id)} style={getLessonStyle(lesson)} type="button"><strong>{lesson.courseCode}{lesson.participantCount === null ? null : <span> – {lesson.participantCount}</span>}</strong><small>{lesson.teacher}</small></button>)}
+                      {roomLessons.map((lesson) => <button className={`lesson-card lesson-card--${lesson.status} ${draggingLessonId === lesson.id ? "is-dragging" : ""}`} draggable key={lesson.id} onClick={() => setSelectedLessonId(lesson.id)} onDragEnd={() => setDraggingLessonId(null)} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/lesson-id", lesson.id); event.dataTransfer.setData("text/plain", lesson.id); setDraggingLessonId(lesson.id); }} style={getLessonStyle(lesson)} type="button"><strong>{lesson.courseCode}{lesson.participantCount === null ? null : <span> – {lesson.participantCount}</span>}</strong><small>{lesson.teacher}</small></button>)}
                     </div>;
                   })}
                 </div>

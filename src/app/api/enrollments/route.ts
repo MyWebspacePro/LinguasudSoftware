@@ -9,7 +9,17 @@ const createEnrollmentSchema = z.object({
   courseId: z.uuid(),
   participantId: z.uuid(),
   billingType: z.enum(["private", "authority"]),
-  creditLessons: z.number().int().min(0).max(999).optional(),
+  creditLessons: z.number().int().min(0).max(999).nullable().optional(),
+  paymentStatus: z.enum(["open", "partially_paid", "paid", "overdue"]).optional(),
+  purchasedAmount: z.number().min(0).max(1_000_000).nullable().optional(),
+  payerName: z.string().trim().max(160).nullable().optional(),
+  caseReference: z.string().trim().max(160).nullable().optional(),
+  approvedLessons: z.number().int().min(0).max(9999).nullable().optional(),
+  approvedAmount: z.number().min(0).max(1_000_000).nullable().optional(),
+  validFrom: z.string().date().nullable().optional(),
+  validUntil: z.string().date().nullable().optional(),
+  tariff: z.number().min(0).max(10000).nullable().optional(),
+  invoiceRecipient: z.string().trim().max(160).nullable().optional(),
 });
 
 export async function GET() {
@@ -66,8 +76,8 @@ export async function POST(request: Request) {
     if (!participant) return NextResponse.json({ error: "Teilnehmende Person wurde nicht gefunden." }, { status: 404 });
 
     const [enrollment] = await sql`
-      INSERT INTO enrollments (id, course_id, participant_id, billing_type, credit_lessons)
-      VALUES (${randomUUID()}, ${input.courseId}, ${input.participantId}, ${input.billingType}, ${input.creditLessons ?? null})
+      INSERT INTO enrollments (id, course_id, participant_id, billing_type, credit_lessons, payment_status, purchased_amount, payer_name, case_reference, approved_lessons, approved_amount, valid_from, valid_until, tariff, invoice_recipient)
+      VALUES (${randomUUID()}, ${input.courseId}, ${input.participantId}, ${input.billingType}, ${input.creditLessons ?? null}, ${input.paymentStatus ?? "open"}, ${input.purchasedAmount ?? null}, ${input.payerName ?? null}, ${input.caseReference ?? null}, ${input.approvedLessons ?? null}, ${input.approvedAmount ?? null}, ${input.validFrom ?? null}, ${input.validUntil ?? null}, ${input.tariff ?? null}, ${input.invoiceRecipient ?? null})
       RETURNING *
     `;
     return NextResponse.json({ enrollment }, { status: 201 });

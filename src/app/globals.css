@@ -403,6 +403,7 @@ button {
 .lesson-card { position: absolute; z-index: 2; left: 5px; right: 5px; overflow: hidden; padding: 7px 7px; border: 0; border-radius: 5px; background: var(--teal); box-shadow: 0 2px 5px rgba(10, 70, 61, 0.16); color: white; cursor: grab; text-align: left; }
 .lesson-card::after { content: ""; position: absolute; right: 0; bottom: -15px; left: 0; height: 14px; border-top: 1px dashed #8eb7ab; background: rgba(142, 183, 171, 0.1); }
 .lesson-card:active { cursor: grabbing; }
+.lesson-card.is-dragging { opacity: 0.45; }
 .lesson-card:hover, .lesson-card:focus-visible { outline: 3px solid rgba(238, 140, 74, 0.48); outline-offset: 1px; }
 .lesson-card strong, .lesson-card small { display: block; white-space: nowrap; }
 .lesson-card strong { font-size: 0.69rem; letter-spacing: -0.02em; }
