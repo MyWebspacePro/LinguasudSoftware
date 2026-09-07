@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { COURSE_LEVELS } from "@/lib/course-levels";
+
 type RoleWorkspaceProps = {
   role: "teacher" | "participant";
   onNotice: (message: string) => void;
@@ -27,6 +29,8 @@ type AttendanceEntry = {
   participant_name: string;
   status: AttendanceStatus | null;
 };
+
+type TeacherCourse = { id: string; code: string; language: string; level: string };
 
 const attendanceOptions: Array<{ value: AttendanceStatus; label: string }> = [
   { value: "present", label: "Anwesend" },
@@ -60,6 +64,13 @@ function TeacherWorkspace({ onNotice, userName }: { onNotice: (message: string) 
   const [attendanceError, setAttendanceError] = useState<string | null>(null);
   const [isAttendanceLoading, setIsAttendanceLoading] = useState(false);
   const [isAttendanceSaving, setIsAttendanceSaving] = useState(false);
+  const [isLevelEditorOpen, setIsLevelEditorOpen] = useState(false);
+  const [teacherCourses, setTeacherCourses] = useState<TeacherCourse[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [selectedLevel, setSelectedLevel] = useState("");
+  const [isLevelLoading, setIsLevelLoading] = useState(false);
+  const [isLevelSaving, setIsLevelSaving] = useState(false);
+  const [levelError, setLevelError] = useState<string | null>(null);
 
   async function openAttendance() {
     setIsAttendanceOpen(true);
@@ -128,11 +139,57 @@ function TeacherWorkspace({ onNotice, userName }: { onNotice: (message: string) 
     }
   }
 
+  async function openLevelEditor() {
+    setIsLevelEditorOpen(true);
+    setLevelError(null);
+    setIsLevelLoading(true);
+    try {
+      const response = await fetch("/api/courses", { credentials: "same-origin" });
+      const payload: unknown = await response.json();
+      if (!response.ok) throw new Error(apiError(payload, "Deine Kurse konnten nicht geladen werden."));
+      const courses = typeof payload === "object" && payload !== null && "courses" in payload && Array.isArray(payload.courses)
+        ? payload.courses as TeacherCourse[]
+        : [];
+      setTeacherCourses(courses);
+      setSelectedCourseId(courses[0]?.id ?? "");
+      setSelectedLevel(courses[0]?.level ?? "");
+    } catch (error) {
+      setLevelError(error instanceof Error ? error.message : "Deine Kurse konnten nicht geladen werden.");
+    } finally {
+      setIsLevelLoading(false);
+    }
+  }
+
+  async function saveCourseLevel() {
+    const course = teacherCourses.find((item) => item.id === selectedCourseId);
+    if (!course || !selectedLevel) return;
+    setIsLevelSaving(true);
+    setLevelError(null);
+    try {
+      const response = await fetch(`/api/courses/${course.id}`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ level: selectedLevel }),
+      });
+      const payload: unknown = await response.json();
+      if (!response.ok) throw new Error(apiError(payload, "Das Kursniveau konnte nicht geändert werden."));
+      setTeacherCourses((current) => current.map((item) => item.id === course.id ? { ...item, level: selectedLevel } : item));
+      onNotice(`${course.code} wurde auf Niveau ${selectedLevel} geändert.`);
+      setIsLevelEditorOpen(false);
+    } catch (error) {
+      setLevelError(error instanceof Error ? error.message : "Das Kursniveau konnte nicht geändert werden.");
+    } finally {
+      setIsLevelSaving(false);
+    }
+  }
+
   return <section className="role-workspace" aria-labelledby="teacher-title">
     <div className="role-workspace__intro"><p className="eyebrow">Lehrpersonenbereich</p><h2 id="teacher-title">Guten Abend, {userName}.</h2><p>Du siehst nur deine heutigen Lektionen und die dafür nötigen Teilnahmedaten.</p></div>
     <article className="teacher-lesson"><div><span className="status-pill">Heute · 18:00 Uhr</span><h3>Deutsch A2 · Abendkurs</h3><p>Schaffhausen 1 · Raum A1 · 5 Teilnehmende</p></div><button className="primary-button" type="button" onClick={openAttendance}>Anwesenheit erfassen</button></article>
-    <div className="teacher-grid"><article><span>Danach</span><h3>Unterrichtsinhalt ergänzen</h3><p>Notiere Ablauf, Hausaufgaben und besondere Vorkommnisse direkt bei der Lektion.</p><button type="button" onClick={() => onNotice("Die Lektionsplanung öffnet sich nach Auswahl der konkreten Lektion.")}>Lektionsplanung öffnen →</button></article><article><span>Kursniveau</span><h3>Aktuell A2</h3><p>Niveauänderungen kannst du für deinen Kurs melden. Die sichtbare Kennung passt anschliessend das Büro an.</p><button type="button" onClick={() => onNotice("Niveauänderung als Meldung ans Büro vorbereitet.")}>Niveauänderung melden →</button></article></div>
+    <div className="teacher-grid"><article><span>Danach</span><h3>Unterrichtsinhalt ergänzen</h3><p>Notiere Ablauf, Hausaufgaben und besondere Vorkommnisse direkt bei der Lektion.</p><button type="button" onClick={() => onNotice("Die Lektionsplanung öffnet sich nach Auswahl der konkreten Lektion.")}>Lektionsplanung öffnen →</button></article><article><span>Kursniveau</span><h3>Niveau selbst aktualisieren</h3><p>Du kannst das Niveau deiner eigenen Kurse ändern. Die Kurskennung bleibt beim Büro.</p><button type="button" onClick={() => void openLevelEditor()}>Kursniveau bearbeiten →</button></article></div>
     {isAttendanceOpen ? <div className="dialog-backdrop" role="presentation"><section className="attendance-dialog" aria-labelledby="attendance-title" role="dialog" aria-modal="true"><button aria-label="Anwesenheit schliessen" className="dialog-close" onClick={() => setIsAttendanceOpen(false)} type="button">×</button><p className="eyebrow">{attendanceLesson ? `${attendanceLesson.code} · ${new Intl.DateTimeFormat("de-CH", { hour: "2-digit", minute: "2-digit" }).format(new Date(attendanceLesson.starts_at))}` : "Anwesenheit"}</p><h2 id="attendance-title">Anwesenheit</h2><p className="dialog-course">Bitte nach der stattgefundenen Lektion bestätigen.</p>{isAttendanceLoading ? <p aria-live="polite">Anwesenheiten werden geladen …</p> : attendanceError ? <p aria-live="assertive" className="dialog-note">{attendanceError}</p> : <div className="attendance-list">{attendanceEntries.map((entry) => <div key={entry.enrollment_id}><strong>{entry.participant_name}</strong><select aria-label={`${entry.participant_name} Anwesenheit`} value={attendance[entry.enrollment_id] ?? "present"} onChange={(event) => setAttendance((current) => ({ ...current, [entry.enrollment_id]: event.target.value as AttendanceStatus }))}>{attendanceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>)}</div>}<div className="dialog-actions"><button className="quiet-button" disabled={isAttendanceSaving} onClick={() => setIsAttendanceOpen(false)} type="button">Abbrechen</button><button className="primary-button" disabled={isAttendanceLoading || isAttendanceSaving || !attendanceLesson || attendanceEntries.length === 0} onClick={saveAttendance} type="button">{isAttendanceSaving ? "Wird gespeichert …" : "Anwesenheit bestätigen"}</button></div></section></div> : null}
+    {isLevelEditorOpen ? <div className="dialog-backdrop" role="presentation"><section className="attendance-dialog" aria-labelledby="course-level-title" role="dialog" aria-modal="true"><button aria-label="Kursniveau schliessen" className="dialog-close" onClick={() => setIsLevelEditorOpen(false)} type="button">×</button><p className="eyebrow">Meine Kurse</p><h2 id="course-level-title">Kursniveau bearbeiten</h2>{isLevelLoading ? <p className="planner-state">Kurse werden geladen …</p> : levelError && teacherCourses.length === 0 ? <p className="dialog-note" role="alert">{levelError}</p> : teacherCourses.length === 0 ? <p className="planner-state">Dir sind noch keine Kurse zugeordnet.</p> : <div className="form-grid"><label>Kurs<select aria-label="Kurs auswählen" onChange={(event) => { setSelectedCourseId(event.target.value); setSelectedLevel(teacherCourses.find((course) => course.id === event.target.value)?.level ?? ""); }} value={selectedCourseId}>{teacherCourses.map((course) => <option key={course.id} value={course.id}>{course.code} · {course.language} {course.level}</option>)}</select></label><label>Neues Niveau<select aria-label="Neues Niveau" onChange={(event) => setSelectedLevel(event.target.value)} value={selectedLevel}>{COURSE_LEVELS.map((level) => <option key={level}>{level}</option>)}</select></label></div>}{levelError && teacherCourses.length > 0 ? <p className="dialog-note" role="alert">{levelError}</p> : null}<div className="dialog-actions"><button className="quiet-button" disabled={isLevelSaving} onClick={() => setIsLevelEditorOpen(false)} type="button">Abbrechen</button><button className="primary-button" disabled={isLevelLoading || isLevelSaving || teacherCourses.length === 0 || !selectedLevel} onClick={() => void saveCourseLevel()} type="button">{isLevelSaving ? "Wird gespeichert …" : "Niveau speichern"}</button></div></section></div> : null}
   </section>;
 }
 
