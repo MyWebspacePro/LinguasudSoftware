@@ -96,6 +96,10 @@ function roomLabel(roomId: string, rooms: PlannerRoom[], locations: Location[]) 
   return room && location ? `${location.name} · ${room.name}` : "Unbekannter Raum";
 }
 
+function isLastRoomAtLocation(roomId: string, locations: Location[]) {
+  return locations.some((location) => location.rooms.at(-1)?.id === roomId);
+}
+
 function getLessonStyle(lesson: PlannerLesson): CSSProperties {
   return {
     top: `${((lesson.startMinutes - DAY_START) / SLOT_MINUTES) * SLOT_HEIGHT + 2}px`,
@@ -400,12 +404,12 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
             <div className="planner-scroll">
               <div className="planner" style={{ "--room-columns": plannerRooms.length } as CSSProperties}>
                 <div className="planner-groups"><div className="planner-corner">Zeit</div>{plannerLocations.map((location) => <div className="location-header" key={location.id} style={{ gridColumn: `span ${location.rooms.length}` }}>{location.name}</div>)}</div>
-                <div className="planner-room-heads"><div />{plannerRooms.map((room) => <div className="room-head" key={room.id}><strong>{room.name}</strong><span>{room.capacity} Plätze</span></div>)}</div>
+                <div className="planner-room-heads"><div />{plannerRooms.map((room) => <div className={`room-head${isLastRoomAtLocation(room.id, plannerLocations) ? " room-head--location-end" : ""}`} key={room.id}><strong>{room.name}</strong><span>{room.capacity} Plätze</span></div>)}</div>
                 <div className="planner-body">
                   <div className="time-axis" aria-hidden="true">{slots.map((minute) => <div key={minute}>{minute % 60 === 0 ? formatTime(minute) : ""}</div>)}</div>
                   {plannerRooms.map((room) => {
                     const roomLessons = lessonsForDay.filter((lesson) => lesson.roomId === room.id);
-                    return <div className="room-column" key={room.id} onDragOver={(event) => event.preventDefault()} onDrop={(event) => onRoomDrop(event, room.id)}>
+                    return <div className={`room-column${isLastRoomAtLocation(room.id, plannerLocations) ? " room-column--location-end" : ""}`} key={room.id} onDragOver={(event) => event.preventDefault()} onDrop={(event) => onRoomDrop(event, room.id)}>
                       {slots.map((minute) => <div className="planner-slot" key={minute} />)}
                       {roomLessons.map((lesson) => <button className={`lesson-card lesson-card--${lesson.status} ${draggingLessonId === lesson.id ? "is-dragging" : ""}`} draggable key={lesson.id} onClick={() => setSelectedLessonId(lesson.id)} onDragEnd={() => setDraggingLessonId(null)} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/lesson-id", lesson.id); event.dataTransfer.setData("text/plain", lesson.id); setDraggingLessonId(lesson.id); }} style={getLessonStyle(lesson)} type="button"><strong>{lesson.courseCode}{lesson.participantCount === null ? null : <span> – {lesson.participantCount}</span>}</strong><small>{lesson.teacher}</small></button>)}
                     </div>;

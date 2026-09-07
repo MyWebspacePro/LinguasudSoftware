@@ -398,32 +398,33 @@ button {
 .planner-notice { display: flex; justify-content: space-between; align-items: center; min-height: 39px; padding: 8px 18px; border-bottom: 1px solid var(--border); background: #fbfdfb; color: var(--ink-soft); font-size: 0.76rem; }
 .planner-notice button { padding: 4px 0; border: 0; background: none; color: var(--teal); cursor: pointer; font-size: inherit; font-weight: 800; text-decoration: underline; }
 .planner-scroll { overflow: auto; max-height: calc(100vh - 245px); }
-.planner { min-width: 1120px; --room-columns: 7; }
-.planner-groups, .planner-room-heads, .planner-body { display: grid; grid-template-columns: 72px repeat(var(--room-columns), minmax(142px, 1fr)); }
+.planner { min-width: 960px; --room-columns: 7; }
+.planner-groups, .planner-room-heads, .planner-body { display: grid; grid-template-columns: 64px repeat(var(--room-columns), minmax(104px, 1fr)); }
 .planner-groups { position: sticky; top: 0; z-index: 3; border-bottom: 1px solid var(--border); background: #edf5f1; }
 .planner-corner, .location-header { padding: 10px 12px; color: var(--teal-deep); font-size: 0.68rem; font-weight: 850; letter-spacing: 0.06em; text-transform: uppercase; }
 .location-header { border-left: 1px solid #cfe0d8; text-align: center; }
 .planner-room-heads { position: sticky; top: 37px; z-index: 3; background: white; border-bottom: 1px solid var(--border); }
-.room-head { min-height: 55px; padding: 10px 12px; border-left: 1px solid var(--border); }
+.room-head { min-height: 48px; padding: 7px 8px; border-left: 1px solid var(--border); }
+.room-head--location-end { border-right: 2px solid #adc8bd; }
 .room-head strong, .room-head span { display: block; }
-.room-head strong { color: var(--ink); font-size: 0.77rem; }
-.room-head span { margin-top: 3px; color: var(--ink-soft); font-size: 0.66rem; }
+.room-head strong { color: var(--ink); font-size: 0.71rem; }
+.room-head span { margin-top: 2px; color: var(--ink-soft); font-size: 0.61rem; }
 .planner-body { align-items: start; }
 .time-axis, .room-column { position: relative; height: 1452px; }
 .time-axis { background: #fbfcfa; border-right: 1px solid var(--border); }
 .time-axis > div { height: 22px; padding: 4px 8px 0 0; border-bottom: 1px solid #edf0ed; color: #8b9994; font-size: 0.63rem; text-align: right; }
 .room-column { border-right: 1px solid var(--border); background: repeating-linear-gradient(to bottom, transparent 0 21px, #edf0ed 21px 22px); }
+.room-column--location-end { border-right: 2px solid #adc8bd; }
 .planner-slot { height: 22px; }
-.room-column:nth-child(4), .room-column:nth-child(6) { border-right: 2px solid #adc8bd; }
-.lesson-card { position: absolute; z-index: 2; left: 5px; right: 5px; overflow: hidden; padding: 7px 7px; border: 0; border-radius: 5px; background: var(--teal); box-shadow: 0 2px 5px rgba(10, 70, 61, 0.16); color: white; cursor: grab; text-align: left; }
+.lesson-card { position: absolute; z-index: 2; left: 3px; right: 3px; overflow: hidden; padding: 6px 5px; border: 0; border-radius: 5px; background: var(--teal); box-shadow: 0 2px 5px rgba(10, 70, 61, 0.16); color: white; cursor: grab; text-align: left; }
 .lesson-card::after { content: ""; position: absolute; right: 0; bottom: -15px; left: 0; height: 14px; border-top: 1px dashed #8eb7ab; background: rgba(142, 183, 171, 0.1); }
 .lesson-card:active { cursor: grabbing; }
 .lesson-card.is-dragging { opacity: 0.45; }
 .lesson-card:hover, .lesson-card:focus-visible { outline: 3px solid rgba(238, 140, 74, 0.48); outline-offset: 1px; }
 .lesson-card strong, .lesson-card small { display: block; white-space: nowrap; }
-.lesson-card strong { font-size: 0.69rem; letter-spacing: -0.02em; }
+.lesson-card strong { font-size: 0.63rem; letter-spacing: -0.02em; }
 .lesson-card strong span { font-weight: 500; }
-.lesson-card small { margin-top: 4px; color: #d7f1e9; font-size: 0.62rem; }
+.lesson-card small { margin-top: 3px; color: #d7f1e9; font-size: 0.57rem; }
 .lesson-card--cancelled { background: #9fa8a4; text-decoration: line-through; }
 
 .management-preview { max-width: 1060px; }
