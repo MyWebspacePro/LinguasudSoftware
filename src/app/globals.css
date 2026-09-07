@@ -479,6 +479,8 @@ button {
 .teacher-grid p, .participant-grid p { margin: 0; color: var(--ink-soft); font-size: 0.8rem; line-height: 1.5; }
 .teacher-grid button, .participant-grid button { margin-top: 18px; padding: 0; border: 0; background: transparent; color: var(--teal); cursor: pointer; font-size: 0.76rem; font-weight: 800; }
 .attendance-dialog { position: relative; width: min(100%, 560px); max-height: calc(100vh - 36px); overflow: auto; padding: 30px; border-radius: 15px; background: white; box-shadow: 0 24px 60px rgba(12, 30, 27, 0.28); }
+.attendance-dialog--wide { width: min(100%, 760px); }
+.attendance-dialog--wide .preview-intro { padding-top: 0; }
 .attendance-dialog h2 { font-size: 1.8rem; }
 .attendance-list { margin-top: 22px; border-top: 1px solid var(--border); }
 .attendance-list > div { display: flex; justify-content: space-between; gap: 15px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border); }
