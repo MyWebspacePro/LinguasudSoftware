@@ -44,5 +44,8 @@ describe("LinguasudDashboard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Kurse" }));
     expect(await screen.findByRole("heading", { level: 2, name: /Kurse/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Neuer Kurs/ }));
+    expect(await screen.findByRole("heading", { level: 2, name: "Neuer Kurs" })).toBeInTheDocument();
   });
 });

@@ -306,7 +306,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
         {activeRole === "office" ? <nav aria-label="Hauptnavigation">
           <p className="nav-label">Organisation</p>
           {navigation.map(([view, label]) => (
-            <button className={`nav-item ${activeView === view ? "nav-item--active" : ""}`} key={view} onClick={() => setActiveView(view)} type="button">
+            <button className={`nav-item ${activeView === view ? "nav-item--active" : ""}`} key={view} onClick={() => { setCourseOpenRequest(0); setActiveView(view); }} type="button">
               <span aria-hidden="true">{view === "raumplan" ? "▦" : view === "kurse" ? "◫" : view === "teilnehmende" ? "◉" : "⊞"}</span>{label}
             </button>
           ))}
