@@ -208,6 +208,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
   const [isOfficeAccountsOpen, setIsOfficeAccountsOpen] = useState(false);
   const [attendanceDate, setAttendanceDate] = useState<string | null>(null);
   const [notice, setNotice] = useState("Raumplan wird geladen.");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const lessonsForDay = useMemo(
     () => lessons.filter((lesson) => lesson.date === activeDay),
@@ -362,7 +363,8 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      <aside className={"sidebar" + (mobileNavOpen ? " sidebar--nav-open" : "")}>
+        <button className="hamburger" onClick={() => setMobileNavOpen((v) => !v)} type="button" aria-label={mobileNavOpen ? "Navigation schliessen" : "Navigation öffnen"}>{mobileNavOpen ? "×" : "☰"}</button>
         <a className="brand" href="#dashboard" aria-label="Linguasud Verwaltung">
           <span className="brand__mark">L</span>
           <span>Linguasud<small>Verwaltung</small></span>
@@ -370,11 +372,11 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
         {activeRole === "office" ? <nav aria-label="Hauptnavigation">
           <p className="nav-label">Organisation</p>
           {navigation.map(([view, label]) => (
-              <button className={`nav-item ${activeView === view ? "nav-item--active" : ""}`} key={view} onClick={() => { setCourseOpenRequest(0); setFocusCourseId(null); setFocusParticipantId(null); setActiveView(view); }} type="button">
+              <button className={`nav-item ${activeView === view ? "nav-item--active" : ""}`} key={view} onClick={() => { setMobileNavOpen(false); setCourseOpenRequest(0); setFocusCourseId(null); setFocusParticipantId(null); setActiveView(view); }} type="button">
               <span aria-hidden="true">{view === "dashboard" ? "▦" : view === "teilnehmer" ? "◉" : view === "lehrpersonen" ? "♧" : view === "kurse" ? "◫" : view === "raeume" ? "▤" : "⊞"}</span>{label}
             </button>
           ))}
-        </nav> : <nav aria-label="Hauptnavigation"><p className="nav-label">Mein Bereich</p><button className="nav-item nav-item--active" type="button">{activeRole === "teacher" ? "◫ Mein Unterricht" : "◉ Mein Kurs"}</button></nav>}
+        </nav> : <nav aria-label="Hauptnavigation"><p className="nav-label">Mein Bereich</p><button className="nav-item nav-item--active" onClick={() => setMobileNavOpen(false)} type="button">{activeRole === "teacher" ? "◫ Mein Unterricht" : "◉ Mein Kurs"}</button></nav>}
         <div className="sidebar__bottom">
           <div className="profile"><span>{user.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</span><div><strong>{user.name}</strong><small>{activeRole === "office" ? "Büro" : activeRole === "teacher" ? "Lehrperson" : "Teilnehmer:in"}</small></div></div>
         </div>
