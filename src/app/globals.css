@@ -284,6 +284,7 @@ button {
   background: var(--sidebar);
   color: #eaf5ef;
 }
+.hamburger { display: none; }
 
 .brand {
   display: inline-flex;
@@ -594,6 +595,30 @@ button {
   .topbar { align-items: start; }
   .topbar__actions .quiet-button { display: none; }
   .planner-scroll { max-height: none; }
+
+  .hamburger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.1);
+    color: #eaf5ef;
+    cursor: pointer;
+    font-size: 1.3rem;
+    line-height: 1;
+  }
+  .hamburger:active { background: rgba(255,255,255,0.25); }
+
+  .sidebar.sidebar--nav-open { position: fixed; z-index: 20; inset: 0; height: 100vh; overflow-y: auto; }
+  .sidebar.sidebar--nav-open nav,
+  .sidebar.sidebar--nav-open .sidebar__bottom { display: block; }
 }
 
 @media (max-width: 560px) {
