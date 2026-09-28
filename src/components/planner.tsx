@@ -119,15 +119,8 @@ function rentalToBlock(rental: RoomRental, date: string): RentalBlock | null {
   return null;
 }
 
-function cellKey(date: string, minute: number): string {
-  return `${date}:${minute}`;
-}
-
-function shortRoomName(roomName: string | null, locationName: string | null): string {
-  const location = locationName?.includes("Schaffhausen") ? "SH" : locationName?.includes("Winterthur") ? "WT" : "";
-  const roomNumber = roomName?.match(/(?:Zimmer|Raum|Room)\s*([\w.-]+)/i)?.[1];
-  const room = roomNumber ? `R${roomNumber}` : roomName?.slice(0, 7) ?? "–";
-  return [location, room].filter(Boolean).join(" ");
+function cellKey(date: string, roomId: string, minute: number): string {
+  return `${date}:${roomId}:${minute}`;
 }
 
 export function Planner({ locations, rooms, canDecide }: { locations: Location[]; rooms: Room[]; canDecide: boolean }) {
@@ -152,9 +145,23 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
     () => rooms.filter((room) => selectedLocationId === "all" || room.locationId === selectedLocationId),
     [rooms, selectedLocationId],
   );
-  const visibleRoomIds = useMemo(
-    () => new Set(availableRooms.filter((room) => selectedRoomId === "all" || room.id === selectedRoomId).map((room) => room.id)),
+  const roomsInView = useMemo(
+    () => availableRooms.filter((room) => selectedRoomId === "all" || room.id === selectedRoomId),
     [availableRooms, selectedRoomId],
+  );
+  const roomGroups = useMemo(
+    () => locations
+      .map((location) => ({ location, rooms: roomsInView.filter((room) => room.locationId === location.id) }))
+      .filter((group) => group.rooms.length > 0),
+    [locations, roomsInView],
+  );
+  const roomColumns = useMemo(
+    () => roomGroups.flatMap((group) => group.rooms),
+    [roomGroups],
+  );
+  const visibleRoomIds = useMemo(
+    () => new Set(roomColumns.map((room) => room.id)),
+    [roomColumns],
   );
   const rentalBlocks = useMemo(
     () => dates.flatMap((date) => rentals.map((rental) => rentalToBlock(rental, date)).filter((block): block is RentalBlock => block !== null)),
@@ -162,8 +169,8 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
   );
   const entriesByCell = useMemo(() => {
     const cells = new Map<string, CellEntries>();
-    const getCell = (date: string, minute: number) => {
-      const key = cellKey(date, minute);
+    const getCell = (date: string, roomId: string, minute: number) => {
+      const key = cellKey(date, roomId, minute);
       let cell = cells.get(key);
       if (!cell) {
         cell = { lessons: [], rentals: [] };
@@ -177,12 +184,12 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
       const minute = zurichMinutes(lesson.startsAt);
       if (!dates.includes(date) || minute < DAY_START || minute >= DAY_END) continue;
       const slot = DAY_START + Math.floor((minute - DAY_START) / SLOT) * SLOT;
-      getCell(date, slot).lessons.push(lesson);
+      getCell(date, lesson.roomId, slot).lessons.push(lesson);
     }
     for (const rental of rentalBlocks) {
       if (!visibleRoomIds.has(rental.roomId) || rental.startMinutes < DAY_START || rental.startMinutes >= DAY_END) continue;
       const slot = DAY_START + Math.floor((rental.startMinutes - DAY_START) / SLOT) * SLOT;
-      getCell(rental.date, slot).rentals.push(rental);
+      getCell(rental.date, rental.roomId, slot).rentals.push(rental);
     }
     return cells;
   }, [dates, lessons, rentalBlocks, visibleRoomIds]);
@@ -224,12 +231,12 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
     }
   }
 
-  async function moveLesson(lesson: Lesson, date: string, minute: number) {
+  async function moveLesson(lesson: Lesson, date: string, roomId: string, minute: number) {
     setError(null);
     setNotice(null);
     try {
       const { lesson: updated } = await api.patch<{ lesson: Lesson }>(`/api/lessons/${lesson.id}`, {
-        roomId: selectedRoomId === "all" ? lesson.roomId : selectedRoomId,
+        roomId,
         date,
         minutes: minute,
         isProvisional: true,
@@ -241,12 +248,12 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
     }
   }
 
-  function onDrop(event: DragEvent<HTMLDivElement>, date: string, minute: number) {
+  function onDrop(event: DragEvent<HTMLDivElement>, date: string, roomId: string, minute: number) {
     event.preventDefault();
     const lessonId = dragId ?? event.dataTransfer.getData("text/plain");
     setDragId(null);
     const lesson = lessons.find((item) => item.id === lessonId);
-    if (lesson) void moveLesson(lesson, date, minute);
+    if (lesson) void moveLesson(lesson, date, roomId, minute);
   }
 
   async function patchLesson(lessonId: string, patch: Record<string, unknown>, message: string) {
@@ -351,47 +358,55 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
       {notice ? <div className="alert alert--success" role="status">{notice}</div> : null}
 
       <div className="planner__viewport" aria-label="Zimmerbelegung für 14 Tage">
-        <div className="planner__calendar">
+        <div className="planner__calendar" style={{ "--planner-column-count": dates.length * roomColumns.length } as React.CSSProperties}>
           <div className="planner__headers">
             <div className="planner__week-head">
               <div className="planner__head-corner" />
-              <div className="planner__week-title planner__week-title--current">
+              <div className="planner__week-title planner__week-title--current" style={{ gridColumn: `span ${7 * roomColumns.length}` }}>
                 <strong>{firstWeekLabel}</strong><span>{formatWeekRange(rangeStart)}</span>
               </div>
-              <div className="planner__week-title">
+              <div className="planner__week-title" style={{ gridColumn: `span ${7 * roomColumns.length}` }}>
                 <strong>{secondWeekLabel}</strong><span>{formatWeekRange(secondWeekStart)}</span>
               </div>
             </div>
             <div className="planner__day-head">
               <div className="planner__time-head">Uhrzeit</div>
               {dates.map((date) => (
-                <div className={`planner__day-title${date === localDate(new Date()) ? " is-today" : ""}`} key={date} title={formatDay(date, "long")}>
+                <div className={`planner__day-title${date === localDate(new Date()) ? " is-today" : ""}`} key={date} style={{ gridColumn: `span ${roomColumns.length}` }} title={formatDay(date, "long")}>
                   <strong>{formatWeekday(date)}</strong>
                   <span>{date.slice(8, 10)}.{date.slice(5, 7)}.</span>
                 </div>
               ))}
+              {dates.flatMap((date) => roomGroups.map((group) => (
+                <div className="planner__location-title" key={`${date}:${group.location.id}`} style={{ gridColumn: `span ${group.rooms.length}` }}>
+                  {group.location.name}
+                </div>
+              )))}
+              {dates.flatMap((date) => roomColumns.map((room) => (
+                <div className="planner__room-title" key={`${date}:${room.id}`} title={room.name}>{room.name}</div>
+              )))}
             </div>
           </div>
           <div className="planner__body">
             <div className="planner__time-col">
               {slots.map((minute) => (
                 <div className={`planner__time${(minute - DAY_START) % 60 === 0 ? " planner__time--hour" : ""}`} key={minute}>
-                  {(minute - DAY_START) % 30 === 0 ? minutesToTime(minute) : ""}
+                  {minutesToTime(minute)}
                 </div>
               ))}
               <div className="planner__time-end">22:30</div>
             </div>
-            {dates.map((date) => (
-              <div className="planner__day-column" key={date}>
+            {dates.flatMap((date) => roomColumns.map((room) => (
+              <div className="planner__room-column" key={`${date}:${room.id}`}>
                 {slots.map((minute) => {
-                  const entries = entriesByCell.get(cellKey(date, minute));
+                  const entries = entriesByCell.get(cellKey(date, room.id, minute));
                   return (
                     <div
-                      aria-label={`${formatDay(date, "long")} ${minutesToTime(minute)}`}
+                      aria-label={`${formatDay(date, "long")} ${room.name} ${minutesToTime(minute)}`}
                       className={`planner__slot${(minute - DAY_START) % 60 === 0 ? " planner__slot--hour" : ""}`}
                       key={minute}
                       onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => onDrop(event, date, minute)}
+                      onDrop={(event) => onDrop(event, date, room.id, minute)}
                     >
                       {entries?.lessons.map((lesson) => (
                         <button
@@ -404,17 +419,25 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
                             setDragId(lesson.id);
                             event.dataTransfer.setData("text/plain", lesson.id);
                           }}
-                          title={`${minutesToTime(zurichMinutes(lesson.startsAt))} · ${lesson.courseCode} · ${lesson.teacherName} · ${lesson.roomName ?? "Kein Raum"}`}
+                          aria-label={`${lesson.courseCode}, ${lesson.languageName} ${lesson.level}, Lehrperson ${lesson.teacherName}, ${lesson.participantCount} Teilnehmende, ${minutesToTime(zurichMinutes(lesson.startsAt))}, ${lesson.roomName ?? "Kein Raum"}`}
                           type="button"
                         >
                           <strong>{lesson.languageName} {lesson.level}</strong>
-                          <span>{minutesToTime(zurichMinutes(lesson.startsAt))} · {shortRoomName(lesson.roomName, lesson.locationName)}</span>
+                          <span>{minutesToTime(zurichMinutes(lesson.startsAt))} · {lesson.teacherName}</span>
+                          <span className="planner__tooltip" role="tooltip">
+                            <strong>{lesson.courseCode}</strong>
+                            <span>{lesson.languageName} {lesson.level}</span>
+                            <span>Lehrperson: {lesson.teacherName}</span>
+                            <span>Teilnehmende: {lesson.participantCount}</span>
+                            <span>{minutesToTime(zurichMinutes(lesson.startsAt))} · {lesson.durationMinutes} Min.</span>
+                            <span>Raum: {lesson.roomName ?? "Kein Raum"}</span>
+                          </span>
                         </button>
                       ))}
                       {entries?.rentals.map((rental) => (
                         <div className="planner__entry planner__rental" key={rental.id} title={`${rental.title} · ${rental.roomName}`}>
                           <strong>{rental.title}</strong>
-                          <span>{minutesToTime(rental.startMinutes)} · {shortRoomName(rental.roomName, rental.locationName)}</span>
+                          <span>{minutesToTime(rental.startMinutes)}</span>
                         </div>
                       ))}
                     </div>
@@ -422,7 +445,7 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
                 })}
                 <div className="planner__end-cell" />
               </div>
-            ))}
+            )))}
           </div>
         </div>
       </div>

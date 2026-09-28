@@ -24,7 +24,7 @@ Rollen: **Büro**, **Lehrperson**, **Teilnehmer**, **Finanzen/Buchhaltung**, **A
 
 ## 3. Standorte & Räume (Modul 2)
 
-- Standorte: **Vorstadt** (Hauptstandort, 1./2./4. Stock), **Stadthausgasse** (2. Standort SH, ca. 3. Stock), **Winterthur** (ca. 3. Stock, nur Kursräume).
+- Standorte: **Vorstadt** (Hauptstandort, 11 Zimmer im 1./2./4. Stock), **Stadthausgasse** (2. Standort SH, 3 Zimmer im 3. Stock), **Winterthur** (3 Zimmer im 3. Stock, nur Kursräume).
 - Standorte können jederzeit dazu kommen oder wegfallen; Pflege nur Büro.
 - Räume: Name (z.B. Oxford, Brisbane, New York, Malta, Paris), Standort, Kapazität, **Etage**, aktiv/inaktiv. Keine weiteren Merkmale.
 - **Raumvermietung:** fixe Zeiträume und Serien (z.B. Nothelferkurs alle 2 Wochen Fr abends + Sa; Kinderspielgruppe). Im Belegungsplan sichtbar, belegt den Raum wie ein Kurs.
