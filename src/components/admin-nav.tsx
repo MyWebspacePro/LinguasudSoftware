@@ -27,6 +27,7 @@ const items: NavItem[] = [
   { href: "/honorare", label: "Honorare", roles: ["office", "admin", "finance"] },
   { href: "/finanzen", label: "Finanzen", roles: ["office", "admin", "finance"] },
   { href: "/webseite", label: "Website-Inhalte", roles: ["office", "admin"] },
+  { href: "/anfragen", label: "Website-Anfragen", roles: ["office", "admin"] },
 ];
 
 export function AdminNav({ user }: { user: { name: string; roles: Role[] } }) {

@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { isRole, type Role } from "@/lib/roles";
-import { jsonRoute, readJson } from "@/server/http";
+import { badRequest, jsonRoute, readJson } from "@/server/http";
 import { createPerson, listPeople, personCreateSchema } from "@/server/services/people";
 
 function parseRole(value: string | null): Role | undefined {
@@ -11,10 +11,15 @@ export async function GET(request: Request) {
   return jsonRoute(async () => {
     await requireRole("office", "admin", "finance");
     const params = new URL(request.url).searchParams;
+    const requestedLimit = params.get("limit");
+    if (requestedLimit && (params.get("search")?.trim().length ?? 0) < 2) {
+      throw badRequest("Für eine begrenzte Suche mindestens zwei Zeichen eingeben.");
+    }
     const people = await listPeople({
       role: parseRole(params.get("role")),
       includeInactive: params.get("includeInactive") === "true",
       search: params.get("search") ?? "",
+      limit: requestedLimit ? Math.min(50, Math.max(1, Number(requestedLimit) || 20)) : undefined,
     });
     return { body: { people } };
   });

@@ -11,6 +11,7 @@ export type PublicCourse = {
   languageName: string;
   level: string;
   kind: string;
+  kindCode: string;
   location: string | null;
   teacherFirstName: string;
   startsOn: string;
@@ -26,6 +27,7 @@ type CourseRow = {
   language_name: string;
   level: string;
   kind: string;
+  kind_code: string;
   location: string | null;
   teacher_first_name: string;
   starts_on: string;
@@ -38,7 +40,7 @@ type CourseRow = {
 export async function listPublicCourses(): Promise<PublicCourse[]> {
   const rows = await db()<CourseRow[]>`
     SELECT courses.id, courses.code, languages.code AS language_code,
-           languages.name AS language_name, courses.level, kinds.name AS kind,
+           languages.name AS language_name, courses.level, kinds.name AS kind, kinds.code AS kind_code,
            locations.name AS location, teacher.first_name AS teacher_first_name,
            to_char(courses.starts_on, 'YYYY-MM-DD') AS starts_on, courses.status,
            LEAST(kinds.max_participants, COALESCE(rooms.capacity, kinds.max_participants))
@@ -74,6 +76,7 @@ export async function listPublicCourses(): Promise<PublicCourse[]> {
     languageName: row.language_name,
     level: row.level,
     kind: row.kind,
+    kindCode: row.kind_code,
     location: row.location,
     teacherFirstName: row.teacher_first_name,
     startsOn: row.starts_on,

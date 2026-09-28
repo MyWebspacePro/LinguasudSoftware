@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { cache } from "react";
 
 import { LOCALES, PAGE_SLUGS, type Locale, type PageSlug } from "@/lib/public-site";
 import { recordChange } from "@/server/audit";
@@ -40,13 +41,13 @@ function fromRow(row: Row): PublicPage {
   return { slug: row.slug, locale: row.locale, title: row.title, body: row.body ?? "", seoTitle: row.seo_title ?? "", seoDescription: row.seo_description ?? "", published: row.published };
 }
 
-export async function getPublicPage(locale: Locale, slug: PageSlug): Promise<PublicPage> {
+export const getPublicPage = cache(async (locale: Locale, slug: PageSlug): Promise<PublicPage> => {
   const [row] = await db()<Row[]>`
     SELECT slug, locale, title, body, seo_title, seo_description, published FROM cms_pages
     WHERE locale = ${locale} AND slug = ${slug} AND published = true
   `;
   return row ? fromRow(row) : { locale, slug, ...fallback[locale][slug], published: false };
-}
+});
 
 export async function listEditablePages(): Promise<PublicPage[]> {
   const rows = await db()<Row[]>`

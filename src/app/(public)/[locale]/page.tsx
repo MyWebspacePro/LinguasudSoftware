@@ -2,14 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { isLocale, PUBLIC_COPY } from "@/lib/public-site";
+import { isLocale, publicCourseKindName, publicLanguageName, PUBLIC_COPY } from "@/lib/public-site";
 import { listPublicCourses } from "@/server/services/public-courses";
 import { getPublicPage } from "@/server/services/public-pages";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) return {};
-  return { title: locale === "de" ? "Sprachschule in Schaffhausen und Winterthur" : "Language school in Schaffhausen and Winterthur" };
+  const page = await getPublicPage(locale, "start");
+  return {
+    title: page.published ? page.seoTitle || page.title : locale === "de" ? "Sprachschule in Schaffhausen und Winterthur" : "Language school in Schaffhausen and Winterthur",
+    description: page.seoDescription,
+  };
 }
 
 export default async function PublicHome({ params }: { params: Promise<{ locale: string }> }) {
@@ -38,7 +42,7 @@ export default async function PublicHome({ params }: { params: Promise<{ locale:
           <div className="public-cards">
             {courses.slice(0, 3).map((course) => (
               <article className="public-card" key={course.id}>
-                <p className="public-eyebrow">{course.languageName} · {course.kind}</p>
+                <p className="public-eyebrow">{publicLanguageName(course.languageCode, course.languageName, locale)} · {publicCourseKindName(course.kindCode, course.kind, locale)}</p>
                 <h3>{course.level} · {course.location ?? copy.location}</h3>
                 <p>{course.availableSeats} {copy.places}</p>
                 <Link href={`/${locale}/kurse`}>{copy.browse} →</Link>

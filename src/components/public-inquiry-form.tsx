@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from "react";
 
 import { api, errorMessage } from "@/lib/api-client";
-import type { Locale } from "@/lib/public-site";
+import { CONSENT_COPY, type Locale } from "@/lib/public-site";
 
 export function PublicInquiryForm({ locale, courseCode }: { locale: Locale; courseCode: string }) {
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export function PublicInquiryForm({ locale, courseCode }: { locale: Locale; cour
       <label>{isGerman ? "Eigene Einschätzung (optional)" : "Current level (optional)"}<input maxLength={80} name="selfAssessment" /></label>
       <label>{isGerman ? "Lernziel (optional)" : "Learning goal (optional)"}<input maxLength={120} name="goal" /></label>
       <label className="public-form-wide">{isGerman ? "Nachricht (optional)" : "Message (optional)"}<textarea maxLength={2000} name="message" rows={4} /></label>
-      <label className="public-consent public-form-wide"><input name="consent" required type="checkbox" />{isGerman ? "Ich bin mit der Bearbeitung meiner Angaben zur Beantwortung dieser Anfrage einverstanden." : "I agree to the processing of my details to respond to this enquiry."}</label>
+      <label className="public-consent public-form-wide"><input name="consent" required type="checkbox" />{CONSENT_COPY[locale]}</label>
       <button className="public-button" disabled={sending} type="submit">{sending ? "…" : isGerman ? "Anfrage senden" : "Send enquiry"}</button>
     </form>
   );

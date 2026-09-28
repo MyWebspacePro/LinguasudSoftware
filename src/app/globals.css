@@ -339,7 +339,7 @@ table.data tr:last-child td {
   gap: 0.3rem;
 }
 
-.field > span {
+.field > span, .field > label {
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--text-muted);
@@ -760,6 +760,9 @@ table.data tr:last-child td {
 .public-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .public-feedback { background: var(--success-bg); border: 1px solid #9dc7aa; border-radius: 10px; padding: 1rem; }
 .public-note { font-size: 0.86rem; color: var(--text-muted); }
+.public-admin-list { display: grid; gap: 1rem; }
+.public-admin-list article { border-top: 1px solid var(--border); padding-top: 0.9rem; }
+.public-admin-list p { margin: 0.3rem 0; }
 .public-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; background: #112a20; color: #d7e7dd; padding: 1.5rem max(1.25rem, calc((100vw - 1100px) / 2)); font-size: 0.85rem; }
 .public-footer a { color: inherit; }
 

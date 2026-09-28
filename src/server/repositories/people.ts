@@ -44,6 +44,7 @@ export type PersonListFilter = {
   role?: Role;
   includeInactive?: boolean;
   search?: string;
+  limit?: number;
 };
 
 export async function listPeople(sql: Sql, filter: PersonListFilter = {}): Promise<Person[]> {
@@ -61,6 +62,7 @@ export async function listPeople(sql: Sql, filter: PersonListFilter = {}): Promi
       AND (${filter.role ?? null}::text IS NULL OR EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = ${filter.role ?? null}))
     GROUP BY users.id
     ORDER BY users.last_name, users.first_name
+    LIMIT ${filter.limit ?? 2147483647}
   `;
   return rows.map(toPerson);
 }

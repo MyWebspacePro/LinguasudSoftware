@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from "react";
 
 import { api, errorMessage } from "@/lib/api-client";
-import type { Locale } from "@/lib/public-site";
+import { CONSENT_COPY, type Locale } from "@/lib/public-site";
 import type { PlacementQuestion } from "@/server/services/public-placement";
 
 export function PlacementForm({ questions, locale }: { questions: PlacementQuestion[]; locale: Locale }) {
@@ -62,7 +62,7 @@ export function PlacementForm({ questions, locale }: { questions: PlacementQuest
           </fieldset>
         ))}
       </div>
-      <label className="public-consent public-form-wide"><input name="consent" required type="checkbox" />{german ? "Ich bin mit der Bearbeitung meiner Angaben zur Einstufung und Kontaktaufnahme einverstanden." : "I agree to processing my details for the level check and contacting me."}</label>
+      <label className="public-consent public-form-wide"><input name="consent" required type="checkbox" />{CONSENT_COPY[locale]}</label>
       <button className="public-button" disabled={sending} type="submit">{sending ? "…" : german ? "Ergebnis senden" : "Submit result"}</button>
     </form>
   );

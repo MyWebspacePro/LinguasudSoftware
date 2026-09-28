@@ -64,8 +64,8 @@ export function LoginForm() {
         />
       </label>
 
-      <label className="field" htmlFor="password">
-        <span>Passwort</span>
+      <div className="field">
+        <label htmlFor="password">Passwort</label>
         <span style={{ display: "flex", gap: "0.4rem" }}>
           <input
             autoComplete="current-password"
@@ -84,7 +84,7 @@ export function LoginForm() {
             {isPasswordVisible ? "Verbergen" : "Anzeigen"}
           </button>
         </span>
-      </label>
+      </div>
 
       <button className="button login-form__submit" disabled={isSubmitting} type="submit">
         {isSubmitting ? "Anmeldung läuft …" : "Anmelden"}

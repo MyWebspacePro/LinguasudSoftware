@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { isLocale, PUBLIC_COPY } from "@/lib/public-site";
+import { isLocale, publicCourseKindName, publicLanguageName, PUBLIC_COPY } from "@/lib/public-site";
 import { listPublicCourses } from "@/server/services/public-courses";
 import { PrintButton } from "@/components/print-button";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
-  return isLocale(locale) ? { title: PUBLIC_COPY[locale].courses } : {};
+  return isLocale(locale) ? {
+    title: PUBLIC_COPY[locale].courses,
+    description: locale === "de" ? "Laufende Gruppenkurse mit freien Plätzen in Schaffhausen und Winterthur." : "Ongoing small-group language courses with available places in Schaffhausen and Winterthur.",
+  } : {};
 }
 
 export default async function CoursesPage({ params, searchParams }: {
@@ -20,7 +23,7 @@ export default async function CoursesPage({ params, searchParams }: {
   const { language } = await searchParams;
   const copy = PUBLIC_COPY[locale];
   const all = await listPublicCourses();
-  const languages = [...new Map(all.map((course) => [course.languageCode, course.languageName])).entries()];
+  const languages = [...new Map(all.map((course) => [course.languageCode, publicLanguageName(course.languageCode, course.languageName, locale)])).entries()];
   const courses = language ? all.filter((course) => course.languageCode === language) : all;
 
   return (
@@ -39,7 +42,7 @@ export default async function CoursesPage({ params, searchParams }: {
         <div className="public-course-list">
           {courses.map((course) => (
             <article className="public-card" key={course.id}>
-              <header className="public-course-header"><span>{course.languageName} · {course.kind}</span><strong>{course.availableSeats} {copy.places}</strong></header>
+              <header className="public-course-header"><span>{publicLanguageName(course.languageCode, course.languageName, locale)} · {publicCourseKindName(course.kindCode, course.kind, locale)}</span><strong>{course.availableSeats} {copy.places}</strong></header>
               <h2>{course.level} · {course.location ?? copy.location}</h2>
               <p className="public-course-code">{course.code} {course.status === "planned" ? `· ${copy.planned}` : ""}</p>
               <ul className="public-schedule">

@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 
 import { isLocale, PUBLIC_COPY } from "@/lib/public-site";
+
+import "../../globals.css";
+
+export const metadata: Metadata = {
+  title: { default: "Linguasud Sprachschule", template: "%s | Linguasud" },
+  description: "Sprachkurse in Schaffhausen und Winterthur – Linguasud.",
+};
 
 export default async function PublicLayout({ children, params }: {
   children: React.ReactNode;
@@ -12,7 +20,7 @@ export default async function PublicLayout({ children, params }: {
   const copy = PUBLIC_COPY[locale];
 
   return (
-    <div className="public-site">
+    <html lang={locale}><body><div className="public-site">
       <header className="public-header">
         <Link className="public-logo" href={`/${locale}`}>{copy.brand}<span>Sprachschule</span></Link>
         <nav aria-label={locale === "de" ? "Hauptnavigation" : "Main navigation"} className="public-nav">
@@ -33,6 +41,6 @@ export default async function PublicLayout({ children, params }: {
         <span>© Linguasud · Schaffhausen & Winterthur</span>
         <span><Link href={`/${locale}/terms`}>{copy.terms}</Link> · <Link href={`/${locale}/privacy`}>{copy.privacy}</Link> · <Link href="/login">Login</Link></span>
       </footer>
-    </div>
+    </div></body></html>
   );
 }

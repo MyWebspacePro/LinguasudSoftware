@@ -4,6 +4,52 @@ export type Locale = (typeof LOCALES)[number];
 export const PAGE_SLUGS = ["start", "about", "prices", "terms", "privacy"] as const;
 export type PageSlug = (typeof PAGE_SLUGS)[number];
 
+export type PublicInquiry = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  language: string | null;
+  courseForm: string | null;
+  message: string | null;
+  handled: boolean;
+  participantId: string | null;
+  createdAt: string;
+};
+
+export type PlacementRecord = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  resultLevel: string | null;
+  participantId: string | null;
+  createdAt: string;
+};
+
+export const CONSENT_COPY = {
+  de: "Ich bin mit der Bearbeitung meiner Angaben zur Beantwortung dieser Anfrage bzw. Einstufung und Kontaktaufnahme einverstanden.",
+  en: "I agree to the processing of my details to respond to my enquiry or level check and to contact me.",
+} as const;
+
+const englishLanguages: Record<string, string> = {
+  DE: "German", EN: "English", FR: "French", IT: "Italian", ES: "Spanish", XX: "Other languages",
+};
+
+const englishCourseKinds: Record<string, string> = {
+  PRV: "Private", DUO: "Duo", KL3: "Small group (3)", KL4: "Small group (4)",
+  GRU: "Small group (up to 6)", ONL: "Online private",
+};
+
+export function publicLanguageName(code: string, name: string, locale: Locale): string {
+  return locale === "en" ? englishLanguages[code] ?? name : name;
+}
+
+export function publicCourseKindName(code: string, name: string, locale: Locale): string {
+  return locale === "en" ? englishCourseKinds[code] ?? name : name;
+}
+
 export function isLocale(value: string): value is Locale {
   return LOCALES.some((locale) => locale === value);
 }
