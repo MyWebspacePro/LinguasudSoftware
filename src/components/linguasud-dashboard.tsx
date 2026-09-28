@@ -6,8 +6,8 @@ import {
   formatTime,
   type Location,
   type Room,
-  type UserRole,
 } from "@/lib/planner";
+import { type Role } from "@/lib/roles";
 import { RoleWorkspace } from "@/components/role-workspaces";
 import { CourseWorkspace } from "@/components/course-workspace";
 import { PeopleWorkspace } from "@/components/people-workspace";
@@ -55,7 +55,7 @@ type PlannerLesson = {
 };
 type PlannerRoom = Room;
 type PlannerTeacher = { id: string; name: string; active?: boolean; teaching_levels?: Array<{ language: string; levels: string[] }> };
-type DashboardUser = { id?: string; name: string; role: UserRole };
+type DashboardUser = { id?: string; name: string; role: Role };
 
 type ApiRoom = {
   id: string;
@@ -388,7 +388,7 @@ export function LinguasudDashboard({ user = { name: "Anna Steiner", role: "offic
           <div className="topbar__actions">{activeRole === "office" ? <button className="quiet-button" onClick={() => setIsOfficeAccountsOpen(true)} type="button">Bürokonten</button> : null}<button className="quiet-button" type="button" onClick={() => setNotice("Keine neuen Benachrichtigungen.")}>⌁ <span>Benachrichtigungen</span></button>{activeRole === "office" ? <button className="primary-button" type="button" onClick={() => { setActiveView("kurse"); setCourseOpenRequest((current) => current + 1); }}>+ Neuer Kurs</button> : null}</div>
         </header>
 
-        {activeRole !== "office" ? <RoleWorkspace role={activeRole} userName={user.name} onNotice={setNotice} /> : activeView === "dashboard" ? <>
+        {activeRole !== "office" ? <RoleWorkspace role={activeRole === "participant" ? "participant" : "teacher"} userName={user.name} onNotice={setNotice} /> : activeView === "dashboard" ? <>
           <DashboardNotifications onOpenAttendance={(date) => { setAttendanceDate(date); setIsAttendanceOpen(true); }} onOpenCourse={(courseId) => { setFocusCourseId(courseId); setActiveView("kurse"); }} />
           <section className="planner-panel" aria-labelledby="room-plan-title">
             <h2 className="sr-only" id="room-plan-title">Tägliches Raumraster</h2>

@@ -9,6 +9,9 @@ export function hashPassword(password: string) {
 export function verifyPassword(password: string, storedHash: string) {
   const [salt, hash] = storedHash.split(":");
   if (!salt || !hash) return false;
+  const expected = Buffer.from(hash, "hex");
+  // Guard against corrupted/truncated hashes: timingSafeEqual throws on length mismatch.
+  if (expected.length !== 64) return false;
   const candidate = scryptSync(password, salt, 64);
-  return timingSafeEqual(candidate, Buffer.from(hash, "hex"));
+  return timingSafeEqual(candidate, expected);
 }
