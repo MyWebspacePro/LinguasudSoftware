@@ -10,7 +10,7 @@ import { NotificationBell } from "@/components/notification-bell";
 type NavItem = { href: string; label: string; roles?: Role[] };
 
 const items: NavItem[] = [
-  { href: "/verwaltung", label: "Dashboard" },
+  { href: "/", label: "Dashboard" },
   { href: "/planer", label: "Zimmerbelegung", roles: ["office", "admin", "teacher"] },
   { href: "/kurse", label: "Kurse", roles: ["office", "admin"] },
   { href: "/personen/teilnehmende", label: "Teilnehmende", roles: ["office", "admin"] },
@@ -46,7 +46,7 @@ export function AdminNav({ user }: { user: { name: string; roles: Role[] } }) {
 
       <nav aria-label="Hauptnavigation" className="nav">
         {visible.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
               aria-current={active ? "page" : undefined}

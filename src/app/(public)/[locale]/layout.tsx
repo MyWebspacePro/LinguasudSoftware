@@ -8,5 +8,5 @@ export default async function PublicLayout({ children, params }: {
 }) {
   await params;
   void children;
-  redirect("/verwaltung");
+  redirect("/");
 }

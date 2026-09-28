@@ -34,7 +34,7 @@ export function LoginForm() {
         return;
       }
 
-      router.replace("/verwaltung");
+      router.replace("/");
       router.refresh();
     } catch {
       setError("Die Verbindung zum Server konnte nicht hergestellt werden. Bitte versuche es erneut.");

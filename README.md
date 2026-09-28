@@ -17,7 +17,7 @@ node --env-file=.env.local scripts/migrate.mjs
 npm run dev
 ```
 
-Danach führt `/` zur deutschen Website `/de`. Die englische Website liegt unter `/en`, die geschützte Verwaltung unter `/verwaltung` und die Anmeldung unter `/login`.
+Danach öffnet `/` die geschützte Verwaltungssoftware. Die Anmeldung liegt unter `/login`; öffentliche Website-Routen sind auf dieser Domain deaktiviert.
 
 ## Wichtige Befehle
 
