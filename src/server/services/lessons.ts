@@ -10,6 +10,7 @@ import { db } from "@/server/db";
 import { badRequest, notFound } from "@/server/http";
 import * as coursesRepo from "@/server/repositories/courses";
 import * as repo from "@/server/repositories/lessons";
+import { notify } from "@/server/services/notifications";
 
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Datum muss im Format YYYY-MM-DD sein.");
 
@@ -95,6 +96,19 @@ async function generateForCourse(
   return created;
 }
 
+async function notifyCourseParticipants(
+  tx: Parameters<typeof coursesRepo.getCourse>[0],
+  courseId: string,
+  input: { kind: string; title: string; body?: string | null; entityType: string; entityId: string },
+): Promise<void> {
+  const rows = await tx<{ participant_id: string }[]>`
+    SELECT participant_id FROM enrollments WHERE course_id = ${courseId} AND active = true
+  `;
+  for (const row of rows) {
+    await notify(tx, { userId: row.participant_id, ...input });
+  }
+}
+
 export async function generateLessons(
   actor: SessionUser,
   input: z.infer<typeof generateSchema>,
@@ -156,6 +170,45 @@ export async function updateLesson(
       after: lesson,
       actorId: actor.id,
     });
+
+    if (patch.status === "cancelled" && before.status !== "cancelled") {
+      await notify(tx, {
+        userId: lesson.teacherId,
+        kind: "lesson_cancelled",
+        title: `Lektion ${lesson.courseCode} abgesagt`,
+        body: lesson.cancellationReason,
+        entityType: "lesson",
+        entityId: id,
+        emailSubject: `Lektion ${lesson.courseCode} abgesagt`,
+      });
+      await notifyCourseParticipants(tx, lesson.courseId, {
+        kind: "lesson_cancelled",
+        title: `Lektion ${lesson.courseCode} abgesagt`,
+        body: lesson.cancellationReason,
+        entityType: "lesson",
+        entityId: id,
+      });
+    }
+
+    if (patch.isProvisional === false && before.isProvisional && before.roomId !== lesson.roomId) {
+      await notify(tx, {
+        userId: lesson.teacherId,
+        kind: "room_changed",
+        title: `Raumwechsel ${lesson.courseCode}`,
+        body: `Neuer Raum: ${lesson.roomName ?? "–"}`,
+        entityType: "lesson",
+        entityId: id,
+        emailSubject: `Raumwechsel ${lesson.courseCode}`,
+      });
+      await notifyCourseParticipants(tx, lesson.courseId, {
+        kind: "room_changed",
+        title: `Raumwechsel ${lesson.courseCode}`,
+        body: `Neuer Raum: ${lesson.roomName ?? "–"}`,
+        entityType: "lesson",
+        entityId: id,
+      });
+    }
+
     return lesson;
   });
 }

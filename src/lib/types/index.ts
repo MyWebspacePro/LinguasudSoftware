@@ -33,3 +33,8 @@ export { LESSON_STATUSES, RENTAL_KINDS } from "@/lib/types/lesson";
 export type { Lesson, LessonStatus, RentalKind, RoomRental } from "@/lib/types/lesson";
 export { ATTENDANCE_STATUSES } from "@/lib/types/attendance";
 export type { AttendanceStatus, LessonAttendanceRow } from "@/lib/types/attendance";
+export { TASK_PRIORITIES, TASK_STATUSES } from "@/lib/types/task";
+export type { Task, TaskComment, TaskPriority, TaskStatus } from "@/lib/types/task";
+export type { Notification } from "@/lib/types/notification";
+export { ABSENCE_STATUSES, TEACHER_ABSENCE_ACTIONS } from "@/lib/types/absence";
+export type { AbsenceStatus, StaffAbsence, TeacherAbsence, TeacherAbsenceAction } from "@/lib/types/absence";

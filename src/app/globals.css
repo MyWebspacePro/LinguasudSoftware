@@ -633,3 +633,76 @@ table.data tr:last-child td {
     padding: 1rem;
   }
 }
+
+/* ------------------------------------------------------------------ Notification bell */
+
+.bell {
+  position: relative;
+}
+
+.bell__panel {
+  position: absolute;
+  left: 0;
+  bottom: 110%;
+  width: 300px;
+  max-height: 60vh;
+  overflow: auto;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 0.6rem;
+  z-index: 20;
+}
+
+.bell__list {
+  list-style: none;
+  margin: 0 0 0.6rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.bell__list li {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.82rem;
+  padding: 0.4rem;
+  border-radius: 6px;
+}
+
+.bell__list li.is-unread {
+  background: var(--surface-muted);
+}
+
+.bell__list time {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.comment-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.comment-list li {
+  background: var(--surface-muted);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.86rem;
+}
+
+.comment-list li p {
+  margin: 0.3rem 0 0;
+}
+
+.comment-list time {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}

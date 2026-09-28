@@ -5,12 +5,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { hasRole, type Role } from "@/lib/roles";
+import { NotificationBell } from "@/components/notification-bell";
 
 type NavItem = { href: string; label: string; roles?: Role[] };
 
 const items: NavItem[] = [
   { href: "/", label: "Übersicht" },
   { href: "/planer", label: "Belegungsplan", roles: ["office", "admin", "teacher"] },
+  { href: "/aufgaben", label: "Aufgaben", roles: ["office", "admin", "finance"] },
+  { href: "/abwesenheiten", label: "Abwesenheiten", roles: ["office", "admin", "teacher"] },
   { href: "/personen", label: "Personen", roles: ["office", "admin", "finance"] },
   { href: "/kurse", label: "Kurse", roles: ["office", "admin"] },
   { href: "/kursstammdaten", label: "Kursstammdaten", roles: ["office", "admin"] },
@@ -65,6 +68,7 @@ export function AdminNav({ user }: { user: { name: string; roles: Role[] } }) {
       </nav>
 
       <div className="sidebar__footer">
+        <NotificationBell />
         <div className="sidebar__user">
           <strong>{user.name}</strong>
           {user.roles.join(", ")}
