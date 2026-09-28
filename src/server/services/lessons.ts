@@ -7,7 +7,7 @@ import { LESSON_STATUSES } from "@/lib/types";
 import type { Lesson } from "@/lib/types";
 import { recordChange } from "@/server/audit";
 import { db } from "@/server/db";
-import { badRequest, notFound } from "@/server/http";
+import { badRequest, conflict, notFound } from "@/server/http";
 import * as coursesRepo from "@/server/repositories/courses";
 import * as repo from "@/server/repositories/lessons";
 import { notify } from "@/server/services/notifications";
@@ -50,6 +50,32 @@ function eachDate(from: string, to: string): string[] {
   return dates;
 }
 
+async function ensureLessonAvailability(
+  tx: Parameters<typeof coursesRepo.getCourse>[0],
+  input: { roomId: string | null; teacherId: string; startsAt: Date; durationMinutes: number; excludeLessonId?: string },
+): Promise<void> {
+  const [overlap] = await tx<{ course_code: string; conflict_type: "room" | "teacher" }[]>`
+    SELECT courses.code AS course_code,
+           CASE WHEN lessons.room_id = ${input.roomId} THEN 'room' ELSE 'teacher' END AS conflict_type
+    FROM lessons
+    JOIN courses ON courses.id = lessons.course_id
+    WHERE lessons.status <> 'cancelled'
+      AND (${input.excludeLessonId ?? null}::uuid IS NULL OR lessons.id <> ${input.excludeLessonId ?? null})
+      AND (
+        (${input.roomId}::uuid IS NOT NULL AND lessons.room_id = ${input.roomId})
+        OR lessons.teacher_id = ${input.teacherId}
+      )
+      AND lessons.starts_at < ${input.startsAt} + ${input.durationMinutes} * interval '1 minute'
+      AND lessons.starts_at + lessons.duration_minutes * interval '1 minute' > ${input.startsAt}
+    LIMIT 1
+  `;
+  if (!overlap) return;
+  if (overlap.conflict_type === "room") {
+    throw conflict(`Der Raum ist zur gewählten Zeit bereits durch Kurs «${overlap.course_code}» belegt.`);
+  }
+  throw conflict(`Die Lehrperson unterrichtet zur gewählten Zeit bereits Kurs «${overlap.course_code}».`);
+}
+
 async function generateForCourse(
   tx: Parameters<typeof coursesRepo.getCourse>[0],
   actor: SessionUser,
@@ -74,6 +100,15 @@ async function generateForCourse(
     for (const schedule of course.schedules) {
       if (schedule.weekday !== weekday) continue;
       if (await repo.lessonExistsZurich(tx, courseId, date, schedule.startTime)) continue;
+      const [start] = await tx<{ starts_at: Date }[]>`
+        SELECT (${date}::date + ${schedule.startTime}::time) AT TIME ZONE 'Europe/Zurich' AS starts_at
+      `;
+      await ensureLessonAvailability(tx, {
+        roomId: course.standardRoomId,
+        teacherId: course.teacherId,
+        startsAt: start.starts_at,
+        durationMinutes: schedule.durationMinutes,
+      });
       await repo.insertLessonZurich(tx, {
         courseId,
         roomId: course.standardRoomId,
@@ -152,6 +187,21 @@ export async function updateLesson(
         SELECT (${date}::date + (${minutes} * interval '1 minute')) AT TIME ZONE 'Europe/Zurich' AS ts
       `;
       startsAt = row.ts;
+    }
+
+    const nextRoomId = rest.roomId === undefined ? before.roomId : rest.roomId;
+    const nextTeacherId = before.teacherId;
+    const nextStartsAt = startsAt ?? new Date(before.startsAt);
+    const nextDurationMinutes = rest.durationMinutes ?? before.durationMinutes;
+    const nextStatus = rest.status ?? before.status;
+    if (nextStatus !== "cancelled") {
+      await ensureLessonAvailability(tx, {
+        roomId: nextRoomId,
+        teacherId: nextTeacherId,
+        startsAt: nextStartsAt,
+        durationMinutes: nextDurationMinutes,
+        excludeLessonId: id,
+      });
     }
 
     await repo.updateLesson(tx, id, { ...rest, ...(startsAt ? { startsAt } : {}) });
