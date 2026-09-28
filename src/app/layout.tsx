@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     default: "Linguasud Software",
     template: "%s | Linguasud Software",
   },
-  description: "Digitale Lösungen, klar gedacht und zuverlässig umgesetzt.",
+  description: "Verwaltungssoftware für die Sprachschule Linguasud.",
 };
 
 export const viewport: Viewport = {

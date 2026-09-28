@@ -23,6 +23,7 @@ export function LoginForm() {
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
@@ -45,12 +46,12 @@ export function LoginForm() {
   return (
     <form className="login-form" onSubmit={handleSubmit}>
       {error ? (
-        <p className="login-form__error" role="alert">
+        <p className="alert alert--error" role="alert">
           {error}
         </p>
       ) : null}
 
-      <label className="login-form__field" htmlFor="email">
+      <label className="field" htmlFor="email">
         <span>E-Mail-Adresse</span>
         <input
           autoComplete="email"
@@ -63,9 +64,9 @@ export function LoginForm() {
         />
       </label>
 
-      <label className="login-form__field" htmlFor="password">
+      <label className="field" htmlFor="password">
         <span>Passwort</span>
-        <span className="login-form__password-control">
+        <span style={{ display: "flex", gap: "0.4rem" }}>
           <input
             autoComplete="current-password"
             id="password"
@@ -76,7 +77,7 @@ export function LoginForm() {
           />
           <button
             aria-label={isPasswordVisible ? "Passwort verbergen" : "Passwort anzeigen"}
-            className="login-form__password-toggle"
+            className="button button--secondary button--small"
             onClick={() => setIsPasswordVisible((visible) => !visible)}
             type="button"
           >
@@ -85,7 +86,7 @@ export function LoginForm() {
         </span>
       </label>
 
-      <button className="login-form__submit" disabled={isSubmitting} type="submit">
+      <button className="button login-form__submit" disabled={isSubmitting} type="submit">
         {isSubmitting ? "Anmeldung läuft …" : "Anmelden"}
       </button>
 
