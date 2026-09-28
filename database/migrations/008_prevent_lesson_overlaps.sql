@@ -16,7 +16,11 @@ ALTER TABLE lessons
   ADD CONSTRAINT lessons_room_time_exclusion
   EXCLUDE USING gist (
     room_id WITH =,
-    tstzrange(starts_at, starts_at + duration_minutes * interval '1 minute', '[)') WITH &&
+    tsrange(
+      starts_at AT TIME ZONE 'UTC',
+      (starts_at AT TIME ZONE 'UTC') + duration_minutes * interval '1 minute',
+      '[)'
+    ) WITH &&
   )
   WHERE (room_id IS NOT NULL AND status <> 'cancelled');
 
@@ -24,6 +28,10 @@ ALTER TABLE lessons
   ADD CONSTRAINT lessons_teacher_time_exclusion
   EXCLUDE USING gist (
     teacher_id WITH =,
-    tstzrange(starts_at, starts_at + duration_minutes * interval '1 minute', '[)') WITH &&
+    tsrange(
+      starts_at AT TIME ZONE 'UTC',
+      (starts_at AT TIME ZONE 'UTC') + duration_minutes * interval '1 minute',
+      '[)'
+    ) WITH &&
   )
   WHERE (status <> 'cancelled');
