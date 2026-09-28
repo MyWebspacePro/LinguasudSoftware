@@ -10,7 +10,7 @@ import { NotificationBell } from "@/components/notification-bell";
 type NavItem = { href: string; label: string; roles?: Role[] };
 
 const items: NavItem[] = [
-  { href: "/", label: "Übersicht" },
+  { href: "/verwaltung", label: "Übersicht" },
   { href: "/planer", label: "Belegungsplan", roles: ["office", "admin", "teacher"] },
   { href: "/aufgaben", label: "Aufgaben", roles: ["office", "admin", "finance"] },
   { href: "/abwesenheiten", label: "Abwesenheiten", roles: ["office", "admin", "teacher"] },
@@ -26,6 +26,7 @@ const items: NavItem[] = [
   { href: "/rechnungen", label: "Rechnungen", roles: ["office", "admin", "finance"] },
   { href: "/honorare", label: "Honorare", roles: ["office", "admin", "finance"] },
   { href: "/finanzen", label: "Finanzen", roles: ["office", "admin", "finance"] },
+  { href: "/webseite", label: "Website-Inhalte", roles: ["office", "admin"] },
 ];
 
 export function AdminNav({ user }: { user: { name: string; roles: Role[] } }) {
@@ -56,7 +57,7 @@ export function AdminNav({ user }: { user: { name: string; roles: Role[] } }) {
 
       <nav aria-label="Hauptnavigation" className="nav">
         {visible.map((item) => {
-          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          const active = pathname === item.href || (item.href !== "/verwaltung" && pathname.startsWith(`${item.href}/`));
           return (
             <Link
               aria-current={active ? "page" : undefined}

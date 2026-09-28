@@ -25,7 +25,7 @@ describe("LoginForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Anmelden" }));
 
     await waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/auth/login", expect.objectContaining({ method: "POST" })));
-    expect(replace).toHaveBeenCalledWith("/");
+    expect(replace).toHaveBeenCalledWith("/verwaltung");
     expect(refresh).toHaveBeenCalledOnce();
   });
 
