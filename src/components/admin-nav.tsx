@@ -12,6 +12,8 @@ const items: NavItem[] = [
   { href: "/", label: "Übersicht" },
   { href: "/personen", label: "Personen", roles: ["office", "admin", "finance"] },
   { href: "/kurse", label: "Kurse", roles: ["office", "admin"] },
+  { href: "/kursstammdaten", label: "Kursstammdaten", roles: ["office", "admin"] },
+  { href: "/tarife", label: "Tarife", roles: ["office", "admin", "finance"] },
   { href: "/anmeldungen", label: "Anmeldungen", roles: ["office", "admin", "finance"] },
   { href: "/standorte", label: "Standorte", roles: ["office", "admin"] },
   { href: "/raeume", label: "Räume", roles: ["office", "admin"] },
