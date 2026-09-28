@@ -58,16 +58,24 @@ function sortPeople(list: Person[]): Person[] {
   return [...list].sort((a, b) => a.lastName.localeCompare(b.lastName, "de") || a.firstName.localeCompare(b.firstName, "de"));
 }
 
-export function PeopleManager({ initialPeople }: { initialPeople: Person[] }) {
+const SECTION_LABELS: Record<Role, string> = {
+  office: "Büromitarbeitende",
+  teacher: "Lehrpersonen",
+  participant: "Teilnehmende",
+  finance: "Finanzmitarbeitende",
+  admin: "Administration",
+};
+
+export function PeopleManager({ initialPeople, defaultRole = "participant" }: { initialPeople: Person[]; defaultRole?: Role }) {
   const [items, setItems] = useState(() => sortPeople(initialPeople));
-  const [form, setForm] = useState<FormState>(emptyForm);
+  const [form, setForm] = useState<FormState>(() => ({ ...emptyForm, roles: [defaultRole] }));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   function reset() {
-    setForm(emptyForm);
+    setForm({ ...emptyForm, roles: [defaultRole] });
     setEditingId(null);
     setError(null);
   }
@@ -274,7 +282,7 @@ export function PeopleManager({ initialPeople }: { initialPeople: Person[] }) {
       {notice ? <div className="alert alert--success">{notice}</div> : null}
 
       <div className="card">
-        <h2>Personen</h2>
+        <h2>{SECTION_LABELS[defaultRole]}</h2>
         {items.length === 0 ? (
           <p className="empty">Noch keine Personen erfasst.</p>
         ) : (

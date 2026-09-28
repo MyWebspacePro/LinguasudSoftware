@@ -66,6 +66,27 @@ export async function listLessonsByDate(sql: Sql, date: string, teacherId?: stri
   return rows.map(toLesson);
 }
 
+export async function listLessonsByDateRange(sql: Sql, from: string, to: string, teacherId?: string): Promise<Lesson[]> {
+  const rows = await sql<Row[]>`
+    SELECT lessons.id, lessons.course_id, courses.code AS course_code, languages.name AS language_name, courses.level,
+           lessons.room_id, rooms.name AS room_name, locations.id AS location_id, locations.name AS location_name,
+           lessons.teacher_id, teacher.first_name || ' ' || teacher.last_name AS teacher_name,
+           lessons.starts_at, lessons.duration_minutes, lessons.status, lessons.is_provisional,
+           lessons.cancellation_reason, lessons.online_link,
+           (SELECT count(*)::int FROM enrollments e WHERE e.course_id = lessons.course_id AND e.active = true) AS participant_count
+    FROM lessons
+    JOIN courses ON courses.id = lessons.course_id
+    JOIN languages ON languages.id = courses.language_id
+    JOIN users teacher ON teacher.id = lessons.teacher_id
+    LEFT JOIN rooms ON rooms.id = lessons.room_id
+    LEFT JOIN locations ON locations.id = rooms.location_id
+    WHERE (lessons.starts_at AT TIME ZONE 'Europe/Zurich')::date BETWEEN ${from}::date AND ${to}::date
+      AND (${teacherId ?? null}::uuid IS NULL OR lessons.teacher_id = ${teacherId ?? null})
+    ORDER BY lessons.starts_at, COALESCE(locations.sort_order, 99), rooms.name NULLS FIRST
+  `;
+  return rows.map(toLesson);
+}
+
 export async function listLessonsByCourse(sql: Sql, courseId: string): Promise<Lesson[]> {
   const rows = await sql<Row[]>`
     SELECT lessons.id, lessons.course_id, courses.code AS course_code, languages.name AS language_name, courses.level,

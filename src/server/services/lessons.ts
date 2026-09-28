@@ -36,6 +36,10 @@ export function listLessonsByDate(date: string, teacherId?: string): Promise<Les
   return repo.listLessonsByDate(db(), date, teacherId);
 }
 
+export function listLessonsByDateRange(from: string, to: string, teacherId?: string): Promise<Lesson[]> {
+  return repo.listLessonsByDateRange(db(), from, to, teacherId);
+}
+
 function eachDate(from: string, to: string): string[] {
   const dates: string[] = [];
   const start = new Date(`${from}T00:00:00Z`);

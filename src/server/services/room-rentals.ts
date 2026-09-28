@@ -41,6 +41,10 @@ export function listRentalsByDate(date: string): Promise<RoomRental[]> {
   return repo.listRentalsByDate(db(), date);
 }
 
+export function listRentalsByDateRange(from: string, to: string): Promise<RoomRental[]> {
+  return repo.listRentalsByDateRange(db(), from, to);
+}
+
 export async function createRental(actor: SessionUser, input: z.infer<typeof rentalCreateSchema>): Promise<RoomRental> {
   return db().begin(async (tx) => {
     const room = await roomsRepo.getRoom(tx, input.roomId);

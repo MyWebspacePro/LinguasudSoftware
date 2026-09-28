@@ -75,6 +75,23 @@ export async function listRentalsByDate(sql: Sql, date: string): Promise<RoomRen
   return rows.map(toRental);
 }
 
+export async function listRentalsByDateRange(sql: Sql, from: string, to: string): Promise<RoomRental[]> {
+  const rows = await sql<Row[]>`
+    SELECT rentals.id, rentals.room_id, rooms.name AS room_name, locations.name AS location_name,
+           rentals.title, rentals.customer_name, rentals.contact_email, rentals.contact_phone, rentals.kind,
+           to_char(rentals.starts_on, 'YYYY-MM-DD') AS starts_on, to_char(rentals.ends_on, 'YYYY-MM-DD') AS ends_on,
+           rentals.weekday, to_char(rentals.start_time, 'HH24:MI') AS start_time, to_char(rentals.end_time, 'HH24:MI') AS end_time,
+           rentals.starts_at, rentals.ends_at, rentals.notes
+    FROM room_rentals rentals
+    JOIN rooms ON rooms.id = rentals.room_id
+    JOIN locations ON locations.id = rooms.location_id
+    WHERE (rentals.kind = 'one_time' AND (rentals.starts_at AT TIME ZONE 'Europe/Zurich')::date BETWEEN ${from}::date AND ${to}::date)
+       OR (rentals.kind = 'series' AND rentals.starts_on <= ${to}::date AND COALESCE(rentals.ends_on, ${to}::date) >= ${from}::date)
+    ORDER BY rooms.name, rentals.start_time
+  `;
+  return rows.map(toRental);
+}
+
 export async function getRental(sql: Sql, id: string): Promise<RoomRental | null> {
   const [row] = await sql<Row[]>`
     SELECT rentals.id, rentals.room_id, rooms.name AS room_name, locations.name AS location_name,

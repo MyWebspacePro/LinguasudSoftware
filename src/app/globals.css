@@ -77,6 +77,7 @@ a {
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow-y: auto;
 }
 
 .brand {
@@ -108,7 +109,7 @@ a {
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.3rem;
 }
 
 .nav__link {
@@ -150,7 +151,8 @@ a {
 
 .app__main {
   padding: 1.5rem 2rem 3rem;
-  max-width: 1200px;
+  min-width: 0;
+  width: 100%;
 }
 
 .page-header {
@@ -437,95 +439,224 @@ table.data tr:last-child td {
   padding: 0.75rem 0;
 }
 
-/* ------------------------------------------------------------------ Planner */
+/* ------------------------------------------------------------------ 14-day room planner */
 
-.planner {
+.planner-toolbar {
+  align-items: end;
+}
+
+.planner-toolbar__date,
+.planner-toolbar__filter {
+  display: grid;
+  gap: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.planner-toolbar__date input,
+.planner-toolbar__filter select {
+  min-height: 36px;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.planner__viewport {
+  max-height: 76vh;
+  overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  overflow: auto;
-  max-height: 72vh;
 }
 
-.planner__head {
-  display: flex;
+.planner__calendar {
+  min-width: 1120px;
+}
+
+.planner__week-head,
+.planner__day-head,
+.planner__body {
+  display: grid;
+  grid-template-columns: 56px repeat(14, minmax(76px, 1fr));
+}
+
+.planner__headers {
   position: sticky;
   top: 0;
+  z-index: 5;
   background: var(--surface);
-  z-index: 2;
+}
+
+.planner__week-head {
+  min-height: 54px;
   border-bottom: 1px solid var(--border);
 }
 
-.planner__corner {
-  flex: 0 0 60px;
-  width: 60px;
+.planner__head-corner {
+  grid-column: 1;
+  grid-row: 1;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
 }
 
-.planner__room-head {
-  flex: 1 0 150px;
-  min-width: 150px;
-  padding: 0.4rem 0.5rem;
-  border-left: 1px solid var(--border);
-  font-size: 0.82rem;
+.planner__week-title {
+  grid-row: 1;
+  grid-column: span 7;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 1px solid var(--border);
+  color: var(--text);
 }
 
-.planner__location {
+.planner__week-title--current {
+  background: #edf5f0;
+}
+
+.planner__week-title strong {
+  font-size: 0.86rem;
+}
+
+.planner__week-title span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.planner__day-head {
+  border-bottom: 1px solid var(--border);
+}
+
+.planner__time-head {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 0.45rem;
+  background: var(--surface);
   color: var(--text-muted);
   font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  font-weight: 600;
+}
+
+.planner__day-title {
+  display: flex;
+  min-height: 44px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.05rem;
+  border-left: 1px solid var(--border);
+  font-size: 0.76rem;
+}
+
+.planner__day-title strong {
+  font-size: 0.75rem;
+}
+
+.planner__day-title span {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.planner__day-title.is-today {
+  background: #e8f2ec;
+  color: var(--primary);
 }
 
 .planner__body {
-  display: flex;
-  position: relative;
+  align-items: start;
 }
 
-.planner__times {
-  flex: 0 0 60px;
-  width: 60px;
+.planner__time-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  grid-auto-rows: 24px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
 }
 
 .planner__time {
-  font-size: 0.72rem;
+  height: 24px;
+  padding-right: 0.42rem;
   color: var(--text-muted);
+  font-size: 0.65rem;
+  line-height: 1;
   text-align: right;
-  padding-right: 0.4rem;
+  transform: translateY(-0.35rem);
 }
 
-.planner__col {
-  flex: 1 0 150px;
-  min-width: 150px;
-  position: relative;
+.planner__time--hour {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.planner__time-end {
+  height: 24px;
+  padding-right: 0.42rem;
+  color: var(--text);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.2rem;
+  text-align: right;
+}
+
+.planner__day-column {
+  display: grid;
+  grid-template-rows: repeat(64, 24px) 24px;
+  min-width: 0;
   border-left: 1px solid var(--border);
 }
 
 .planner__slot {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  padding: 1px;
   border-bottom: 1px solid #eef2ef;
 }
 
 .planner__slot--hour {
-  border-bottom-color: var(--border);
+  border-bottom-color: #cbd6cf;
+}
+
+.planner__entry {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 2px 3px;
+  border-radius: 4px;
+  font-size: 0.59rem;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.planner__entry strong,
+.planner__entry span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .planner__lesson {
-  position: absolute;
-  left: 2px;
-  right: 2px;
+  cursor: grab;
   background: var(--success-bg);
   border: 1px solid var(--primary);
-  border-radius: 6px;
-  padding: 2px 4px;
-  font-size: 0.72rem;
-  text-align: left;
-  cursor: grab;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  line-height: 1.2;
+  color: var(--text);
 }
 
 .planner__lesson span {
@@ -543,16 +674,20 @@ table.data tr:last-child td {
 }
 
 .planner__rental {
-  position: absolute;
-  left: 2px;
-  right: 2px;
   background: #e9eef5;
   border: 1px solid #9aa9c0;
-  border-radius: 6px;
-  padding: 2px 4px;
-  font-size: 0.72rem;
   color: #33415c;
-  overflow: hidden;
+}
+
+.planner__end-cell {
+  height: 24px;
+  border-top: 2px solid var(--border);
+}
+
+.planner__caption {
+  margin: 0.5rem 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
 }
 
 /* ------------------------------------------------------------------ Login */
@@ -612,21 +747,24 @@ table.data tr:last-child td {
   .app__sidebar {
     position: static;
     height: auto;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
+    max-height: 65vh;
+    flex-direction: column;
+    align-items: stretch;
     gap: 0.75rem;
   }
 
   .nav {
-    flex-direction: row;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    width: 100%;
   }
 
   .sidebar__footer {
-    margin: 0 0 0 auto;
+    margin: 0;
     flex-direction: row;
     align-items: center;
+    flex-wrap: wrap;
   }
 
   .app__main {

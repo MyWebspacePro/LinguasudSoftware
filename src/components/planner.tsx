@@ -9,12 +9,44 @@ import type { Lesson, Location, Room, RoomRental } from "@/lib/types";
 const DAY_START = 6 * 60 + 30;
 const DAY_END = 22 * 60 + 30;
 const SLOT = 15;
-const SLOT_HEIGHT = 26;
+const VISIBLE_DAYS = 14;
 
-type RentalBlock = { id: string; title: string; startMinutes: number; endMinutes: number; roomId: string };
+type RentalBlock = {
+  id: string;
+  date: string;
+  title: string;
+  startMinutes: number;
+  endMinutes: number;
+  roomId: string;
+  roomName: string;
+};
 
-function isoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+type CellEntries = { lessons: Lesson[]; rentals: RentalBlock[] };
+
+function localDate(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Zurich",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "00";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function shiftDate(date: string, days: number): string {
+  const shifted = new Date(`${date}T00:00:00Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted.toISOString().slice(0, 10);
+}
+
+function mondayOf(date: string): string {
+  const day = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return shiftDate(date, -((day + 6) % 7));
+}
+
+function zurichDate(iso: string): string {
+  return localDate(new Date(iso));
 }
 
 function zurichMinutes(iso: string): number {
@@ -33,40 +65,57 @@ function minutesToTime(minutes: number): string {
   return `${Math.floor(minutes / 60).toString().padStart(2, "0")}:${(minutes % 60).toString().padStart(2, "0")}`;
 }
 
-function shiftDate(date: string, days: number): string {
-  const next = new Date(`${date}T00:00:00Z`);
-  next.setUTCDate(next.getUTCDate() + days);
-  return isoDate(next);
+function formatDay(date: string, weekday: "short" | "long" = "short"): string {
+  return new Intl.DateTimeFormat("de-CH", {
+    timeZone: "Europe/Zurich",
+    weekday,
+    day: "2-digit",
+    month: "2-digit",
+  }).format(new Date(`${date}T12:00:00Z`));
 }
 
-function weekRange(date: string): { from: string; to: string } {
-  const current = new Date(`${date}T00:00:00Z`);
-  const day = (current.getUTCDay() + 6) % 7;
-  const from = shiftDate(date, -day);
-  return { from, to: shiftDate(from, 6) };
+function formatWeekday(date: string): string {
+  return new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", weekday: "short" })
+    .format(new Date(`${date}T12:00:00Z`));
+}
+
+function formatWeekRange(from: string): string {
+  return `${formatDay(from)} – ${formatDay(shiftDate(from, 6))}`;
 }
 
 function rentalToBlock(rental: RoomRental, date: string): RentalBlock | null {
   if (rental.kind === "one_time" && rental.startsAt) {
-    if (isoDate(new Date(rental.startsAt)) !== date) return null;
+    if (zurichDate(rental.startsAt) !== date) return null;
     const start = zurichMinutes(rental.startsAt);
     const end = rental.endsAt ? zurichMinutes(rental.endsAt) : start + 60;
-    return { id: rental.id, title: rental.title, startMinutes: start, endMinutes: end, roomId: rental.roomId };
+    return { id: rental.id, date, title: rental.title, startMinutes: start, endMinutes: end, roomId: rental.roomId, roomName: rental.roomName };
   }
   if (rental.kind === "series" && rental.weekday !== null && rental.startTime && rental.endTime) {
-    const weekday = (new Date(`${date}T00:00:00Z`).getUTCDay() + 7) % 7;
-    if (weekday !== rental.weekday) return null;
-    if (date < rental.startsOn) return null;
-    if (rental.endsOn && date > rental.endsOn) return null;
+    const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+    if (weekday !== rental.weekday || date < rental.startsOn || (rental.endsOn && date > rental.endsOn)) return null;
     const [sh, sm] = rental.startTime.split(":").map(Number);
     const [eh, em] = rental.endTime.split(":").map(Number);
-    return { id: rental.id, title: rental.title, startMinutes: sh * 60 + sm, endMinutes: eh * 60 + em, roomId: rental.roomId };
+    return {
+      id: rental.id,
+      date,
+      title: rental.title,
+      startMinutes: sh * 60 + sm,
+      endMinutes: eh * 60 + em,
+      roomId: rental.roomId,
+      roomName: rental.roomName,
+    };
   }
   return null;
 }
 
+function cellKey(date: string, minute: number): string {
+  return `${date}:${minute}`;
+}
+
 export function Planner({ locations, rooms, canDecide }: { locations: Location[]; rooms: Room[]; canDecide: boolean }) {
-  const [date, setDate] = useState(() => isoDate(new Date()));
+  const [rangeStart, setRangeStart] = useState(() => mondayOf(localDate(new Date())));
+  const [selectedLocationId, setSelectedLocationId] = useState("all");
+  const [selectedRoomId, setSelectedRoomId] = useState("all");
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [rentals, setRentals] = useState<RoomRental[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -75,33 +124,62 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
   const [busy, setBusy] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
 
-  const groups = useMemo(() => {
-    return locations
-      .map((location) => ({ location, rooms: rooms.filter((room) => room.locationId === location.id) }))
-      .filter((group) => group.rooms.length > 0);
-  }, [locations, rooms]);
-
+  const dates = useMemo(() => Array.from({ length: VISIBLE_DAYS }, (_, index) => shiftDate(rangeStart, index)), [rangeStart]);
   const slots = useMemo(() => {
     const values: number[] = [];
-    for (let minute = DAY_START; minute <= DAY_END; minute += SLOT) values.push(minute);
+    for (let minute = DAY_START; minute < DAY_END; minute += SLOT) values.push(minute);
     return values;
   }, []);
-
-  const rentalBlocks = useMemo(
-    () => rentals.map((rental) => rentalToBlock(rental, date)).filter((block): block is RentalBlock => block !== null),
-    [rentals, date],
+  const availableRooms = useMemo(
+    () => rooms.filter((room) => selectedLocationId === "all" || room.locationId === selectedLocationId),
+    [rooms, selectedLocationId],
   );
-
+  const visibleRoomIds = useMemo(
+    () => new Set(availableRooms.filter((room) => selectedRoomId === "all" || room.id === selectedRoomId).map((room) => room.id)),
+    [availableRooms, selectedRoomId],
+  );
+  const rentalBlocks = useMemo(
+    () => dates.flatMap((date) => rentals.map((rental) => rentalToBlock(rental, date)).filter((block): block is RentalBlock => block !== null)),
+    [dates, rentals],
+  );
+  const entriesByCell = useMemo(() => {
+    const cells = new Map<string, CellEntries>();
+    const getCell = (date: string, minute: number) => {
+      const key = cellKey(date, minute);
+      let cell = cells.get(key);
+      if (!cell) {
+        cell = { lessons: [], rentals: [] };
+        cells.set(key, cell);
+      }
+      return cell;
+    };
+    for (const lesson of lessons) {
+      if (!lesson.roomId || !visibleRoomIds.has(lesson.roomId)) continue;
+      const date = zurichDate(lesson.startsAt);
+      const minute = zurichMinutes(lesson.startsAt);
+      if (!dates.includes(date) || minute < DAY_START || minute >= DAY_END) continue;
+      const slot = DAY_START + Math.floor((minute - DAY_START) / SLOT) * SLOT;
+      getCell(date, slot).lessons.push(lesson);
+    }
+    for (const rental of rentalBlocks) {
+      if (!visibleRoomIds.has(rental.roomId) || rental.startMinutes < DAY_START || rental.startMinutes >= DAY_END) continue;
+      const slot = DAY_START + Math.floor((rental.startMinutes - DAY_START) / SLOT) * SLOT;
+      getCell(rental.date, slot).rentals.push(rental);
+    }
+    return cells;
+  }, [dates, lessons, rentalBlocks, visibleRoomIds]);
   const selected = lessons.find((lesson) => lesson.id === selectedId) ?? null;
 
   useEffect(() => {
     let active = true;
     void (async () => {
       setError(null);
+      const from = dates[0];
+      const to = dates[dates.length - 1];
       try {
         const [lessonData, rentalData] = await Promise.all([
-          api.get<{ lessons: Lesson[] }>(`/api/lessons?date=${date}`),
-          api.get<{ rentals: RoomRental[] }>(`/api/room-rentals?date=${date}`),
+          api.get<{ lessons: Lesson[] }>(`/api/lessons?from=${from}&to=${to}`),
+          canDecide ? api.get<{ rentals: RoomRental[] }>(`/api/room-rentals?from=${from}&to=${to}`) : Promise.resolve({ rentals: [] }),
         ]);
         if (!active) return;
         setLessons(lessonData.lessons);
@@ -113,7 +191,7 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
     return () => {
       active = false;
     };
-  }, [date]);
+  }, [canDecide, dates]);
 
   function replaceLesson(lesson: Lesson) {
     setLessons((current) => current.map((item) => (item.id === lesson.id ? lesson : item)));
@@ -121,28 +199,36 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
 
   async function refreshLessons() {
     try {
-      const data = await api.get<{ lessons: Lesson[] }>(`/api/lessons?date=${date}`);
+      const data = await api.get<{ lessons: Lesson[] }>(`/api/lessons?from=${dates[0]}&to=${dates[dates.length - 1]}`);
       setLessons(data.lessons);
     } catch (caught) {
       setError(errorMessage(caught));
     }
   }
 
-  async function moveLesson(lessonId: string, roomId: string, minutes: number) {
+  async function moveLesson(lesson: Lesson, date: string, minute: number) {
     setError(null);
     setNotice(null);
     try {
-      const { lesson } = await api.patch<{ lesson: Lesson }>(`/api/lessons/${lessonId}`, {
-        roomId,
+      const { lesson: updated } = await api.patch<{ lesson: Lesson }>(`/api/lessons/${lesson.id}`, {
+        roomId: selectedRoomId === "all" ? lesson.roomId : selectedRoomId,
         date,
-        minutes,
+        minutes: minute,
         isProvisional: true,
       });
-      replaceLesson(lesson);
-      setNotice("Änderung ist vorläufig. Erst beim Fixieren wird sie sichtbar.");
+      replaceLesson(updated);
+      setNotice("Änderung ist vorläufig. Erst beim Fixieren wird sie übernommen.");
     } catch (caught) {
       setError(errorMessage(caught));
     }
+  }
+
+  function onDrop(event: DragEvent<HTMLDivElement>, date: string, minute: number) {
+    event.preventDefault();
+    const lessonId = dragId ?? event.dataTransfer.getData("text/plain");
+    setDragId(null);
+    const lesson = lessons.find((item) => item.id === lessonId);
+    if (lesson) void moveLesson(lesson, date, minute);
   }
 
   async function patchLesson(lessonId: string, patch: Record<string, unknown>, message: string) {
@@ -179,13 +265,12 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
   }
 
   async function generate() {
-    const { from, to } = weekRange(date);
     setBusy(true);
     setError(null);
     try {
-      const result = await api.post<{ created: number }>("/api/lessons/generate", { from, to });
-      setNotice(`${result.created} Lektionen für die Woche generiert.`);
-      const lessonData = await api.get<{ lessons: Lesson[] }>(`/api/lessons?date=${date}`);
+      const result = await api.post<{ created: number }>("/api/lessons", { from: dates[0], to: dates[dates.length - 1] });
+      setNotice(`${result.created} Lektionen für 14 Tage generiert.`);
+      const lessonData = await api.get<{ lessons: Lesson[] }>(`/api/lessons?from=${dates[0]}&to=${dates[dates.length - 1]}`);
       setLessons(lessonData.lessons);
     } catch (caught) {
       setError(errorMessage(caught));
@@ -194,171 +279,155 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
     }
   }
 
-  function onDrop(event: DragEvent<HTMLDivElement>, roomId: string) {
-    event.preventDefault();
-    const lessonId = dragId ?? event.dataTransfer.getData("text/plain");
-    setDragId(null);
-    if (!lessonId) return;
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const offset = event.clientY - bounds.top;
-    const slotIndex = Math.round(offset / SLOT_HEIGHT);
-    const minutes = Math.min(DAY_END - SLOT, Math.max(DAY_START, DAY_START + slotIndex * SLOT));
-    void moveLesson(lessonId, roomId, minutes);
-  }
-
-  const bodyHeight = ((DAY_END - DAY_START) / SLOT) * SLOT_HEIGHT;
+  const todayWeek = mondayOf(localDate(new Date()));
+  const nextWeek = shiftDate(todayWeek, 7);
+  const currentWindow = rangeStart === todayWeek;
+  const firstWeekLabel = rangeStart === todayWeek ? "Aktuelle Woche" : rangeStart === nextWeek ? "Nächste Woche" : "Woche 1";
+  const secondWeekStart = shiftDate(rangeStart, 7);
+  const secondWeekLabel = secondWeekStart === todayWeek ? "Aktuelle Woche" : secondWeekStart === nextWeek ? "Nächste Woche" : "Woche 2";
 
   return (
     <>
-      <div className="toolbar">
-        <button className="button button--secondary button--small" onClick={() => setDate((current) => shiftDate(current, -1))} type="button">
-          ‹ Vortag
+      <div className="toolbar planner-toolbar">
+        <button className="button button--secondary button--small" onClick={() => setRangeStart((current) => shiftDate(current, -14))} type="button">
+          ‹ 2 Wochen
         </button>
-        <input onChange={(event) => event.target.value && setDate(event.target.value)} type="date" value={date} />
-        <button className="button button--secondary button--small" onClick={() => setDate((current) => shiftDate(current, 1))} type="button">
-          Folgetag ›
+        <label className="planner-toolbar__date">Startwoche
+          <input
+            onChange={(event) => event.target.value && setRangeStart(mondayOf(event.target.value))}
+            type="date"
+            value={rangeStart}
+          />
+        </label>
+        <button className="button button--secondary button--small" onClick={() => setRangeStart((current) => shiftDate(current, 14))} type="button">
+          2 Wochen ›
         </button>
-        <button className="button button--secondary button--small" onClick={() => setDate(isoDate(new Date()))} type="button">
-          Heute
+        <button className="button button--secondary button--small" onClick={() => setRangeStart(todayWeek)} type="button">
+          Aktuelle + nächste Woche
         </button>
-        <button className="button button--secondary button--small" disabled={busy} onClick={() => void generate()} type="button">
-          Woche generieren
-        </button>
-        <button className="button button--small" disabled={busy} onClick={() => void fixAll()} type="button">
-          Alle offenen fixieren
-        </button>
+        <label className="planner-toolbar__filter">Standort
+          <select onChange={(event) => { setSelectedLocationId(event.target.value); setSelectedRoomId("all"); }} value={selectedLocationId}>
+            <option value="all">Alle Standorte</option>
+            {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
+          </select>
+        </label>
+        <label className="planner-toolbar__filter">Raum
+          <select onChange={(event) => setSelectedRoomId(event.target.value)} value={selectedRoomId}>
+            <option value="all">Alle Räume</option>
+            {availableRooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
+          </select>
+        </label>
+        {canDecide ? (
+          <>
+            <button className="button button--secondary button--small" disabled={busy} onClick={() => void generate()} type="button">
+              14 Tage generieren
+            </button>
+            <button className="button button--small" disabled={busy || !lessons.some((lesson) => lesson.isProvisional)} onClick={() => void fixAll()} type="button">
+              Vorläufige fixieren
+            </button>
+          </>
+        ) : null}
       </div>
 
       {error ? <div className="alert alert--error" role="alert">{error}</div> : null}
-      {notice ? <div className="alert alert--success">{notice}</div> : null}
+      {notice ? <div className="alert alert--success" role="status">{notice}</div> : null}
 
-      <div className="planner">
-        <div className="planner__head">
-          <div className="planner__corner" />
-          {groups.flatMap((group) =>
-            group.rooms.map((room) => (
-              <div className="planner__room-head" key={room.id}>
-                <span className="planner__location">{group.location.name}</span>
-                <span>{room.name}</span>
+      <div className="planner__viewport" aria-label="Zimmerbelegung für 14 Tage">
+        <div className="planner__calendar">
+          <div className="planner__headers">
+            <div className="planner__week-head">
+              <div className="planner__head-corner" />
+              <div className="planner__week-title planner__week-title--current">
+                <strong>{firstWeekLabel}</strong><span>{formatWeekRange(rangeStart)}</span>
               </div>
-            )),
-          )}
-        </div>
-
-        <div className="planner__body" style={{ height: bodyHeight }}>
-          <div className="planner__times">
-            {slots.map((minute) => (
-              <div className="planner__time" key={minute} style={{ height: SLOT_HEIGHT }}>
-                {minute % 60 === 0 ? minutesToTime(minute) : ""}
+              <div className="planner__week-title">
+                <strong>{secondWeekLabel}</strong><span>{formatWeekRange(secondWeekStart)}</span>
+              </div>
+            </div>
+            <div className="planner__day-head">
+              <div className="planner__time-head">Uhrzeit</div>
+              {dates.map((date) => (
+                <div className={`planner__day-title${date === localDate(new Date()) ? " is-today" : ""}`} key={date} title={formatDay(date, "long")}>
+                  <strong>{formatWeekday(date)}</strong>
+                  <span>{date.slice(8, 10)}.{date.slice(5, 7)}.</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="planner__body">
+            <div className="planner__time-col">
+              {slots.map((minute) => (
+                <div className={`planner__time${(minute - DAY_START) % 60 === 0 ? " planner__time--hour" : ""}`} key={minute}>
+                  {(minute - DAY_START) % 30 === 0 ? minutesToTime(minute) : ""}
+                </div>
+              ))}
+              <div className="planner__time-end">22:30</div>
+            </div>
+            {dates.map((date) => (
+              <div className="planner__day-column" key={date}>
+                {slots.map((minute) => {
+                  const entries = entriesByCell.get(cellKey(date, minute));
+                  return (
+                    <div
+                      aria-label={`${formatDay(date, "long")} ${minutesToTime(minute)}`}
+                      className={`planner__slot${(minute - DAY_START) % 60 === 0 ? " planner__slot--hour" : ""}`}
+                      key={minute}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => onDrop(event, date, minute)}
+                    >
+                      {entries?.lessons.map((lesson) => (
+                        <button
+                          className={`planner__entry planner__lesson${lesson.isProvisional ? " is-provisional" : ""}${lesson.status === "cancelled" ? " is-cancelled" : ""}`}
+                          draggable
+                          key={lesson.id}
+                          onClick={() => setSelectedId(lesson.id)}
+                          onDragEnd={() => setDragId(null)}
+                          onDragStart={(event) => {
+                            setDragId(lesson.id);
+                            event.dataTransfer.setData("text/plain", lesson.id);
+                          }}
+                          title={`${minutesToTime(zurichMinutes(lesson.startsAt))} · ${lesson.courseCode} · ${lesson.teacherName} · ${lesson.roomName ?? "Kein Raum"}`}
+                          type="button"
+                        >
+                          <strong>{lesson.courseCode}</strong>
+                          <span>{minutesToTime(zurichMinutes(lesson.startsAt))} · {lesson.roomName ?? "Kein Raum"}</span>
+                        </button>
+                      ))}
+                      {entries?.rentals.map((rental) => (
+                        <div className="planner__entry planner__rental" key={rental.id} title={`${rental.title} · ${rental.roomName}`}>
+                          <strong>{rental.title}</strong>
+                          <span>{minutesToTime(rental.startMinutes)} · {rental.roomName}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+                <div className="planner__end-cell" />
               </div>
             ))}
           </div>
-
-          {groups.flatMap((group) =>
-            group.rooms.map((room) => (
-              <div
-                className="planner__col"
-                key={room.id}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => onDrop(event, room.id)}
-              >
-                {slots.map((minute) => (
-                  <div className={`planner__slot${minute % 60 === 0 ? " planner__slot--hour" : ""}`} key={minute} style={{ height: SLOT_HEIGHT }} />
-                ))}
-
-                {rentalBlocks
-                  .filter((block) => block.roomId === room.id)
-                  .map((block) => (
-                    <div
-                      className="planner__rental"
-                      key={block.id}
-                      style={{
-                        top: ((block.startMinutes - DAY_START) / SLOT) * SLOT_HEIGHT,
-                        height: Math.max(SLOT_HEIGHT, ((block.endMinutes - block.startMinutes) / SLOT) * SLOT_HEIGHT),
-                      }}
-                      title={block.title}
-                    >
-                      {block.title}
-                    </div>
-                  ))}
-
-                {lessons
-                  .filter((lesson) => lesson.roomId === room.id)
-                  .map((lesson) => {
-                    const start = zurichMinutes(lesson.startsAt);
-                    return (
-                      <button
-                        className={`planner__lesson${lesson.isProvisional ? " is-provisional" : ""}${lesson.status === "cancelled" ? " is-cancelled" : ""}`}
-                        draggable
-                        key={lesson.id}
-                        onClick={() => setSelectedId(lesson.id)}
-                        onDragEnd={() => setDragId(null)}
-                        onDragStart={(event) => {
-                          setDragId(lesson.id);
-                          event.dataTransfer.setData("text/plain", lesson.id);
-                        }}
-                        style={{
-                          top: ((start - DAY_START) / SLOT) * SLOT_HEIGHT,
-                          height: Math.max(SLOT_HEIGHT, (lesson.durationMinutes / SLOT) * SLOT_HEIGHT),
-                        }}
-                        type="button"
-                      >
-                        <strong>{lesson.courseCode}</strong>
-                        <span>
-                          {minutesToTime(start)} · {lesson.teacherName}
-                        </span>
-                      </button>
-                    );
-                  })}
-              </div>
-            )),
-          )}
         </div>
       </div>
 
+      {currentWindow ? <p className="planner__caption">Ansicht: aktuelle und nächste Woche · 14 Tage · 06:30–22:30 Uhr</p> : null}
+
       {selected ? (
         <div className="card" style={{ marginTop: "1rem" }}>
-          <h2>
-            {selected.courseCode} · {minutesToTime(zurichMinutes(selected.startsAt))}
-          </h2>
+          <h2>{selected.courseCode} · {minutesToTime(zurichMinutes(selected.startsAt))}</h2>
           <p className="empty" style={{ padding: 0 }}>
             {selected.languageName} {selected.level} · {selected.teacherName} · Raum {selected.roomName ?? "–"} ·{" "}
-            {selected.durationMinutes} Min. · {selected.participantCount} Teilnehmende
-            {selected.isProvisional ? " · vorläufig" : ""}
+            {selected.durationMinutes} Min. · {selected.participantCount} Teilnehmende{selected.isProvisional ? " · vorläufig" : ""}
           </p>
           <div className="form-actions">
             {selected.isProvisional ? (
-              <button
-                className="button button--small"
-                disabled={busy}
-                onClick={() => void patchLesson(selected.id, { isProvisional: false }, "Lektion fixiert.")}
-                type="button"
-              >
-                Fixieren
-              </button>
+              <button className="button button--small" disabled={busy} onClick={() => void patchLesson(selected.id, { isProvisional: false }, "Lektion fixiert.")} type="button">Fixieren</button>
             ) : null}
             {selected.status !== "cancelled" ? (
-              <button
-                className="button button--secondary button--small"
-                disabled={busy}
-                onClick={() => void patchLesson(selected.id, { status: "cancelled" }, "Lektion abgesagt.")}
-                type="button"
-              >
-                Absagen
-              </button>
+              <button className="button button--secondary button--small" disabled={busy} onClick={() => void patchLesson(selected.id, { status: "cancelled" }, "Lektion abgesagt.")} type="button">Absagen</button>
             ) : (
-              <button
-                className="button button--secondary button--small"
-                disabled={busy}
-                onClick={() => void patchLesson(selected.id, { status: "scheduled" }, "Lektion wiederhergestellt.")}
-                type="button"
-              >
-                Wiederherstellen
-              </button>
+              <button className="button button--secondary button--small" disabled={busy} onClick={() => void patchLesson(selected.id, { status: "scheduled" }, "Lektion wiederhergestellt.")} type="button">Wiederherstellen</button>
             )}
-            <button className="button button--secondary button--small" onClick={() => setSelectedId(null)} type="button">
-              Schliessen
-            </button>
+            <button className="button button--secondary button--small" onClick={() => setSelectedId(null)} type="button">Schliessen</button>
           </div>
           <AttendancePanel canExcuse={canDecide} lessonId={selected.id} onCompleted={() => void refreshLessons()} />
         </div>

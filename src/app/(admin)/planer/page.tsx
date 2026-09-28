@@ -19,8 +19,8 @@ export default async function PlannerPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Belegungsplan</h1>
-          <p>Lektionen per Drag’n’Drop verschieben; Änderungen erst fixieren.</p>
+          <h1>Zimmerbelegung</h1>
+          <p>Aktuelle und nächste Woche im 14-Tage-Plan. Lektionen zwischen Zeitfeldern verschieben; Änderungen danach fixieren.</p>
         </div>
       </div>
       <Planner canDecide={canDecide} locations={locations} rooms={rooms} />

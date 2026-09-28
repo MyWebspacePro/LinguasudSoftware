@@ -51,13 +51,17 @@ export default async function DashboardPage() {
           <div className="stat__value">{people.length}</div>
           <div className="stat__label">Personen</div>
         </Link>
-        <Link className="stat" href="/personen?role=participant">
+        <Link className="stat" href="/personen/teilnehmende">
           <div className="stat__value">{peopleByRole.participants}</div>
           <div className="stat__label">Teilnehmende</div>
         </Link>
-        <Link className="stat" href="/personen?role=teacher">
+        <Link className="stat" href="/personen/lehrpersonen">
           <div className="stat__value">{peopleByRole.teachers}</div>
           <div className="stat__label">Lehrpersonen</div>
+        </Link>
+        <Link className="stat" href="/personen/bueromitarbeitende">
+          <div className="stat__value">{peopleByRole.office}</div>
+          <div className="stat__label">Büromitarbeitende</div>
         </Link>
         <Link className="stat" href="/standorte">
           <div className="stat__value">{locations.length}</div>
