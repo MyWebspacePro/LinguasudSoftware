@@ -598,6 +598,11 @@ table.data tr:last-child td {
   transform: translateY(-0.35rem);
 }
 
+.planner__time:first-child {
+  padding-top: 0.15rem;
+  transform: none;
+}
+
 .planner__time--hour {
   color: var(--text);
   font-weight: 600;

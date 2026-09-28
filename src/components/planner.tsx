@@ -19,6 +19,7 @@ type RentalBlock = {
   endMinutes: number;
   roomId: string;
   roomName: string;
+  locationName: string;
 };
 
 type CellEntries = { lessons: Lesson[]; rentals: RentalBlock[] };
@@ -88,7 +89,16 @@ function rentalToBlock(rental: RoomRental, date: string): RentalBlock | null {
     if (zurichDate(rental.startsAt) !== date) return null;
     const start = zurichMinutes(rental.startsAt);
     const end = rental.endsAt ? zurichMinutes(rental.endsAt) : start + 60;
-    return { id: rental.id, date, title: rental.title, startMinutes: start, endMinutes: end, roomId: rental.roomId, roomName: rental.roomName };
+    return {
+      id: rental.id,
+      date,
+      title: rental.title,
+      startMinutes: start,
+      endMinutes: end,
+      roomId: rental.roomId,
+      roomName: rental.roomName,
+      locationName: rental.locationName,
+    };
   }
   if (rental.kind === "series" && rental.weekday !== null && rental.startTime && rental.endTime) {
     const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
@@ -103,6 +113,7 @@ function rentalToBlock(rental: RoomRental, date: string): RentalBlock | null {
       endMinutes: eh * 60 + em,
       roomId: rental.roomId,
       roomName: rental.roomName,
+      locationName: rental.locationName,
     };
   }
   return null;
@@ -110,6 +121,13 @@ function rentalToBlock(rental: RoomRental, date: string): RentalBlock | null {
 
 function cellKey(date: string, minute: number): string {
   return `${date}:${minute}`;
+}
+
+function shortRoomName(roomName: string | null, locationName: string | null): string {
+  const location = locationName?.includes("Schaffhausen") ? "SH" : locationName?.includes("Winterthur") ? "WT" : "";
+  const roomNumber = roomName?.match(/(?:Zimmer|Raum|Room)\s*([\w.-]+)/i)?.[1];
+  const room = roomNumber ? `R${roomNumber}` : roomName?.slice(0, 7) ?? "–";
+  return [location, room].filter(Boolean).join(" ");
 }
 
 export function Planner({ locations, rooms, canDecide }: { locations: Location[]; rooms: Room[]; canDecide: boolean }) {
@@ -389,14 +407,14 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
                           title={`${minutesToTime(zurichMinutes(lesson.startsAt))} · ${lesson.courseCode} · ${lesson.teacherName} · ${lesson.roomName ?? "Kein Raum"}`}
                           type="button"
                         >
-                          <strong>{lesson.courseCode}</strong>
-                          <span>{minutesToTime(zurichMinutes(lesson.startsAt))} · {lesson.roomName ?? "Kein Raum"}</span>
+                          <strong>{lesson.languageName} {lesson.level}</strong>
+                          <span>{minutesToTime(zurichMinutes(lesson.startsAt))} · {shortRoomName(lesson.roomName, lesson.locationName)}</span>
                         </button>
                       ))}
                       {entries?.rentals.map((rental) => (
                         <div className="planner__entry planner__rental" key={rental.id} title={`${rental.title} · ${rental.roomName}`}>
                           <strong>{rental.title}</strong>
-                          <span>{minutesToTime(rental.startMinutes)} · {rental.roomName}</span>
+                          <span>{minutesToTime(rental.startMinutes)} · {shortRoomName(rental.roomName, rental.locationName)}</span>
                         </div>
                       ))}
                     </div>
