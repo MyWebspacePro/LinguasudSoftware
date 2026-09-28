@@ -39,9 +39,9 @@ type SessionRow = {
 };
 
 export class AuthError extends Error {
-  readonly code: "UNAUTHORIZED" | "RATE_LIMITED";
+  readonly code: "UNAUTHENTICATED" | "FORBIDDEN" | "RATE_LIMITED";
 
-  constructor(code: "UNAUTHORIZED" | "RATE_LIMITED") {
+  constructor(code: "UNAUTHENTICATED" | "FORBIDDEN" | "RATE_LIMITED") {
     super(code);
     this.name = "AuthError";
     this.code = code;
@@ -146,8 +146,8 @@ export async function signOut(): Promise<void> {
 
 export async function requireRole(...roles: Role[]): Promise<SessionUser> {
   const user = await currentUser();
-  if (!user) throw new AuthError("UNAUTHORIZED");
-  if (roles.length > 0 && !roles.some((role) => user.roles.includes(role))) throw new AuthError("UNAUTHORIZED");
+  if (!user) throw new AuthError("UNAUTHENTICATED");
+  if (roles.length > 0 && !roles.some((role) => user.roles.includes(role))) throw new AuthError("FORBIDDEN");
   return user;
 }
 
