@@ -23,7 +23,6 @@ export function LoginForm() {
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
-        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
@@ -34,7 +33,7 @@ export function LoginForm() {
         return;
       }
 
-      router.replace("/verwaltung");
+      router.replace("/");
       router.refresh();
     } catch {
       setError("Die Verbindung zum Server konnte nicht hergestellt werden. Bitte versuche es erneut.");
@@ -46,12 +45,12 @@ export function LoginForm() {
   return (
     <form className="login-form" onSubmit={handleSubmit}>
       {error ? (
-        <p className="alert alert--error" role="alert">
+        <p className="login-form__error" role="alert">
           {error}
         </p>
       ) : null}
 
-      <label className="field" htmlFor="email">
+      <label className="login-form__field" htmlFor="email">
         <span>E-Mail-Adresse</span>
         <input
           autoComplete="email"
@@ -64,9 +63,9 @@ export function LoginForm() {
         />
       </label>
 
-      <div className="field">
-        <label htmlFor="password">Passwort</label>
-        <span style={{ display: "flex", gap: "0.4rem" }}>
+      <label className="login-form__field" htmlFor="password">
+        <span>Passwort</span>
+        <span className="login-form__password-control">
           <input
             autoComplete="current-password"
             id="password"
@@ -77,16 +76,16 @@ export function LoginForm() {
           />
           <button
             aria-label={isPasswordVisible ? "Passwort verbergen" : "Passwort anzeigen"}
-            className="button button--secondary button--small"
+            className="login-form__password-toggle"
             onClick={() => setIsPasswordVisible((visible) => !visible)}
             type="button"
           >
             {isPasswordVisible ? "Verbergen" : "Anzeigen"}
           </button>
         </span>
-      </div>
+      </label>
 
-      <button className="button login-form__submit" disabled={isSubmitting} type="submit">
+      <button className="login-form__submit" disabled={isSubmitting} type="submit">
         {isSubmitting ? "Anmeldung läuft …" : "Anmelden"}
       </button>
 

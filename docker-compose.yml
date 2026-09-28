@@ -3,14 +3,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      DATABASE_URL: ${DATABASE_URL:?Set the existing PostgreSQL connection URL}
-      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?Set the initial office email}
-      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set the initial office password (min. 12 chars)}
+      DATABASE_URL: ${DATABASE_URL:?Set the existing PostgreSQL connection URL in Coolify}
+      SESSION_SECRET: ${SESSION_SECRET:?Set a random session secret in Coolify}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?Set the initial office email in Coolify}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set the initial office password in Coolify}

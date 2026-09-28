@@ -4,7 +4,7 @@ Verwaltungssoftware für eine Sprachschule: Büroverwaltung, Teilnehmende, Lehrp
 
 ## Voraussetzungen
 
-- Node.js 22.22.2 oder neuer
+- Node.js 22 oder neuer
 - npm 10 oder neuer
 
 ## Lokal starten
@@ -12,12 +12,10 @@ Verwaltungssoftware für eine Sprachschule: Büroverwaltung, Teilnehmende, Lehrp
 ```bash
 npm install
 cp .env.example .env.local
- # PostgreSQL separat starten und DATABASE_URL in .env.local setzen
-node --env-file=.env.local scripts/migrate.mjs
 npm run dev
 ```
 
-Danach führt `/` zur deutschen Website `/de`. Die englische Website liegt unter `/en`, die geschützte Verwaltung unter `/verwaltung` und die Anmeldung unter `/login`.
+Danach ist die Anwendung unter [http://localhost:3000](http://localhost:3000) erreichbar.
 
 ## Wichtige Befehle
 
@@ -36,23 +34,14 @@ npm run check      # Lint, Typen und Tests
 
 ```text
 src/
-├── app/           # Öffentliche und interne Routen, APIs, Styles
-├── components/    # UI-Komponenten
-├── lib/           # Typen und browser-/serverübergreifende Helfer
-└── server/        # Datenzugriff und fachliche Services
+├── app/           # Routen, Layouts und globale Styles
+├── components/    # Wiederverwendbare UI-Komponenten
+└── lib/           # Konfiguration und fachunabhängige Helfer
 ```
 
 Server Components sind der Standard. `"use client"` sollte nur dort eingesetzt werden, wo Browser-APIs, lokaler Zustand oder Interaktionen benötigt werden.
 
-Der gewünschte Funktionsumfang steht in [`docs/pflichtenheft.md`](docs/pflichtenheft.md). Das aktuelle Schema wird durch die Migrationen in `database/migrations/` aufgebaut.
-
-## Öffentliche Website
-
-- `/de`, `/en`: öffentliche Inhalte; `/de/kurse` und `/en/kurse`: Gruppenkurse mit tatsächlich freien Plätzen. Die Kapazität ist die kleinere Zahl aus Kursart und Standardraum, minus aktive Anmeldungen. Volle/inaktive Kurse werden nicht veröffentlicht.
-- Kursblätter können aus der Kursliste über die Browser-Druckfunktion als PDF gespeichert werden.
-- `/de/kontakt`, `/en/kontakt`: Anfrage ohne Kontenerstellung, mit Büro-Aufgabe.
-- `/de/einstufung`, `/en/einstufung`: unverbindlicher Deutsch-Kurztest (A1–B2). Das Büro bestätigt die Einstufung und ordnet Ergebnisse nach Identitätsprüfung zu; eine behauptete E-Mail-Adresse reicht zur automatischen Kontoverknüpfung nicht aus.
-- Büro/Admin bearbeiten veröffentlichte Texte pro Sprache unter `/webseite` und bearbeiten Anfragen unter `/anfragen`. Texte werden als Klartext angezeigt. Personen- und Zahlungsdaten werden nicht öffentlich ausgegeben.
+Das relationale Datenmodell und die verfügbaren Querverweise zwischen Kursen, Räumen, Standorten, Lehrpersonen, Teilnehmenden, Lektionen und Einschreibungen sind in [`docs/data-model.md`](docs/data-model.md) dokumentiert.
 
 ## Umgebungsvariablen
 
@@ -60,17 +49,15 @@ Neue Variablen werden in `.env.example` dokumentiert und in `src/lib/env.ts` val
 
 ## Deployment mit Coolify
 
-**Neubau-Stand: Die Schema-Baseline setzt eine frische, leere PostgreSQL-Datenbank voraus.** Die Migrationen sind keine Upgrade-Migration für die bisherige Mock-up-Datenbank. Deshalb den neuen Stand nicht gegen die bestehende Coolify-DB starten, bevor ein separater Migrations-/Übernahmeplan festgelegt wurde. Der Container führt vor dem Start ausstehende Migrationen aus und legt bei einer leeren Datenbank das erste Büro-/Adminkonto an.
+Die bestehende PostgreSQL-Datenbank in Coolify bleibt erhalten. Beim Start führt der Container alle noch nicht angewendeten Migrationen aus und legt das erste Bürokonto nur dann an, wenn dessen E-Mail-Adresse noch nicht existiert.
 
 In Coolify sind für den App-Service diese Variablen zu setzen:
 
 ```text
 DATABASE_URL=<interne PostgreSQL-Verbindungs-URL aus Coolify>
+SESSION_SECRET=<langer zufälliger Geheimwert>
 BOOTSTRAP_ADMIN_EMAIL=<E-Mail für das erste Bürokonto>
 BOOTSTRAP_ADMIN_PASSWORD=<mindestens 12 Zeichen>
-NEXT_PUBLIC_APP_URL=<öffentliche Basis-URL, auch beim Docker-Build setzen>
 ```
 
-`/api/health` bestätigt die Datenbankverbindung mit `{ "status": "ok" }`.
-
-**Stand der Integrationen:** Die bexio-Anbindung ist derzeit nur eine Schnittstelle ohne produktive OAuth-Synchronisation. Der öffentliche Kurztest dient ausschliesslich der ersten Orientierung; seine Fragen und das Ergebnis ersetzen keine Einstufung durch die Sprachschule. Ein Mail-Provider muss separat konfiguriert und die Versand-Queue betrieben werden. Backups und Betriebsüberwachung sind noch einzurichten.
+Nach dem Deployment bestätigt `https://linguasudsoftware.aiconso.eu/api/health` die Bereitschaft nur dann mit `{ "status": "ok" }`, wenn die App PostgreSQL erreicht. Ein anderer Status weist auf eine fehlende oder fehlerhafte Datenbankverbindung hin.
