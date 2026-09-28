@@ -150,6 +150,7 @@ CREATE TABLE IF NOT EXISTS participant_profiles (
 
 CREATE TABLE IF NOT EXISTS languages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL UNIQUE,
   active BOOLEAN NOT NULL DEFAULT true,
   sort_order SMALLINT NOT NULL DEFAULT 0,
@@ -159,6 +160,7 @@ CREATE TABLE IF NOT EXISTS languages (
 
 CREATE TABLE IF NOT EXISTS course_size_kinds (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL UNIQUE,
   min_participants SMALLINT NOT NULL CHECK (min_participants > 0),
   max_participants SMALLINT NOT NULL,

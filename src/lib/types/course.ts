@@ -9,6 +9,7 @@ export type Tariff = (typeof TARIFFS)[number];
 
 export type Language = {
   id: string;
+  code: string;
   name: string;
   active: boolean;
   sortOrder: number;
@@ -16,6 +17,7 @@ export type Language = {
 
 export type CourseSizeKind = {
   id: string;
+  code: string;
   name: string;
   minParticipants: number;
   maxParticipants: number;

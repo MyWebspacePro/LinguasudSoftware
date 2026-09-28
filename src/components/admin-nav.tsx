@@ -11,6 +11,8 @@ type NavItem = { href: string; label: string; roles?: Role[] };
 const items: NavItem[] = [
   { href: "/", label: "Übersicht" },
   { href: "/personen", label: "Personen", roles: ["office", "admin", "finance"] },
+  { href: "/kurse", label: "Kurse", roles: ["office", "admin"] },
+  { href: "/anmeldungen", label: "Anmeldungen", roles: ["office", "admin", "finance"] },
   { href: "/standorte", label: "Standorte", roles: ["office", "admin"] },
   { href: "/raeume", label: "Räume", roles: ["office", "admin"] },
   { href: "/organisationen", label: "Kostenträger", roles: ["office", "admin", "finance"] },
