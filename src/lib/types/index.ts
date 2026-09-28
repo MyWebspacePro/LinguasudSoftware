@@ -38,3 +38,12 @@ export type { Task, TaskComment, TaskPriority, TaskStatus } from "@/lib/types/ta
 export type { Notification } from "@/lib/types/notification";
 export { ABSENCE_STATUSES, TEACHER_ABSENCE_ACTIONS } from "@/lib/types/absence";
 export type { AbsenceStatus, StaffAbsence, TeacherAbsence, TeacherAbsenceAction } from "@/lib/types/absence";
+export { INVOICE_KINDS, INVOICE_STATUSES } from "@/lib/types/finance";
+export type {
+  FinanceOverview,
+  Invoice,
+  InvoiceKind,
+  InvoiceStatus,
+  PayrollEntry,
+  TeacherRate,
+} from "@/lib/types/finance";

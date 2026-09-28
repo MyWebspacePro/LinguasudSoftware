@@ -12,6 +12,8 @@ const serverEnvSchema = z.object({
   MAIL_PROVIDER: z.enum(["smtp", "resend", "postmark", "brevo", "mailgun"]).optional(),
   MAIL_SMTP_URL: z.string().optional(),
   MAIL_API_KEY: z.string().optional(),
+  BEXIO_API_TOKEN: z.string().optional(),
+  BEXIO_ACCOUNT_ID: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

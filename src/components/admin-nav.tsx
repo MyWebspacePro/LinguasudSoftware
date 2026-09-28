@@ -23,6 +23,9 @@ const items: NavItem[] = [
   { href: "/raeume", label: "Räume", roles: ["office", "admin"] },
   { href: "/vermietungen", label: "Raumvermietung", roles: ["office", "admin"] },
   { href: "/organisationen", label: "Kostenträger", roles: ["office", "admin", "finance"] },
+  { href: "/rechnungen", label: "Rechnungen", roles: ["office", "admin", "finance"] },
+  { href: "/honorare", label: "Honorare", roles: ["office", "admin", "finance"] },
+  { href: "/finanzen", label: "Finanzen", roles: ["office", "admin", "finance"] },
 ];
 
 export function AdminNav({ user }: { user: { name: string; roles: Role[] } }) {
