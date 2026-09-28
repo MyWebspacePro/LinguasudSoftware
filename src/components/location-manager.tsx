@@ -71,6 +71,19 @@ export function LocationManager({ initialLocations }: { initialLocations: Locati
     }
   }
 
+  async function remove(location: Location) {
+    if (!window.confirm(`Standort «${location.name}» wirklich löschen?`)) return;
+    setError(null);
+    setNotice(null);
+    try {
+      await api.delete(`/api/locations/${location.id}`);
+      setItems((current) => current.filter((item) => item.id !== location.id));
+      setNotice("Standort gelöscht.");
+    } catch (caught) {
+      setError(errorMessage(caught));
+    }
+  }
+
   return (
     <>
       <div className="card">
@@ -156,6 +169,9 @@ export function LocationManager({ initialLocations }: { initialLocations: Locati
                       </button>
                       <button className="button button--secondary button--small" onClick={() => void toggleActive(location)} type="button">
                         {location.active ? "Deaktivieren" : "Aktivieren"}
+                      </button>
+                      <button className="button button--secondary button--small" onClick={() => void remove(location)} type="button">
+                        Löschen
                       </button>
                     </div>
                   </td>

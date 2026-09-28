@@ -7,7 +7,7 @@ import type { Room } from "@/lib/types";
 import { recordChange } from "@/server/audit";
 import { db } from "@/server/db";
 import type { Sql } from "@/server/db";
-import { notFound } from "@/server/http";
+import { conflict, notFound } from "@/server/http";
 import * as locationsRepo from "@/server/repositories/locations";
 import * as repo from "@/server/repositories/rooms";
 
@@ -70,5 +70,38 @@ export async function updateRoom(actor: SessionUser, id: string, patch: repo.Roo
       actorId: actor.id,
     });
     return room;
+  });
+}
+
+export async function deleteRoom(actor: SessionUser, id: string): Promise<void> {
+  await db().begin(async (tx) => {
+    const before = await repo.getRoom(tx, id);
+    if (!before) throw notFound("Raum wurde nicht gefunden.");
+    const [inUse] = await tx<{ in_use: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM courses
+        WHERE standard_room_id = ${id} AND status IN ('planned', 'active')
+      ) OR EXISTS (
+        SELECT 1 FROM lessons
+        WHERE room_id = ${id} AND status <> 'cancelled' AND starts_at >= now()
+      ) OR EXISTS (
+        SELECT 1 FROM room_rentals
+        WHERE room_id = ${id}
+          AND (
+            (kind = 'one_time' AND COALESCE(ends_at, starts_at) >= now())
+            OR (kind = 'series' AND COALESCE(ends_on, 'infinity'::date) >= CURRENT_DATE)
+          )
+      ) AS in_use
+    `;
+    if (inUse?.in_use) throw conflict("Der Raum wird noch für einen laufenden Kurs, eine künftige Lektion oder Vermietung verwendet. Bitte zuerst verschieben oder deaktivieren.");
+    await repo.deleteRoom(tx, id);
+    await recordChange(tx, {
+      entityType: "room",
+      entityId: id,
+      eventType: "deleted",
+      summary: `Raum «${before.name}» gelöscht`,
+      before,
+      actorId: actor.id,
+    });
   });
 }

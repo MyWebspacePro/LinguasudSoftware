@@ -2,7 +2,7 @@ import { requireRole } from "@/lib/auth";
 import { db } from "@/server/db";
 import { jsonRoute, notFound, readJson } from "@/server/http";
 import { listRoomsByLocation } from "@/server/repositories/rooms";
-import { getLocation, locationUpdateSchema, updateLocation } from "@/server/services/locations";
+import { deleteLocation, getLocation, locationUpdateSchema, updateLocation } from "@/server/services/locations";
 
 export async function GET(_request: Request, context: { params: Promise<{ locationId: string }> }) {
   return jsonRoute(async () => {
@@ -21,5 +21,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ locat
     const { locationId } = await context.params;
     const patch = locationUpdateSchema.parse(await readJson(request));
     return { body: { location: await updateLocation(actor, locationId, patch) } };
+  });
+}
+
+export async function DELETE(_request: Request, context: { params: Promise<{ locationId: string }> }) {
+  return jsonRoute(async () => {
+    const actor = await requireRole("office", "admin");
+    const { locationId } = await context.params;
+    await deleteLocation(actor, locationId);
+    return { body: { deleted: true } };
   });
 }

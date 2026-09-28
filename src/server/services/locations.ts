@@ -6,7 +6,7 @@ import type { SessionUser } from "@/lib/auth";
 import type { Location } from "@/lib/types";
 import { recordChange } from "@/server/audit";
 import { db } from "@/server/db";
-import { notFound } from "@/server/http";
+import { conflict, notFound } from "@/server/http";
 import * as repo from "@/server/repositories/locations";
 
 export const locationCreateSchema = z.object({
@@ -63,5 +63,23 @@ export async function updateLocation(actor: SessionUser, id: string, patch: repo
       actorId: actor.id,
     });
     return location;
+  });
+}
+
+export async function deleteLocation(actor: SessionUser, id: string): Promise<void> {
+  await db().begin(async (tx) => {
+    const before = await repo.getLocation(tx, id);
+    if (!before) throw notFound("Standort wurde nicht gefunden.");
+    const [room] = await tx<{ id: string }[]>`SELECT id FROM rooms WHERE location_id = ${id} LIMIT 1`;
+    if (room) throw conflict("Der Standort enthält noch Räume. Diese zuerst löschen oder den Standort deaktivieren.");
+    await repo.deleteLocation(tx, id);
+    await recordChange(tx, {
+      entityType: "location",
+      entityId: id,
+      eventType: "deleted",
+      summary: `Standort «${before.name}» gelöscht`,
+      before,
+      actorId: actor.id,
+    });
   });
 }

@@ -16,6 +16,7 @@ const items: NavItem[] = [
   { href: "/personen/teilnehmende", label: "Teilnehmende", roles: ["office", "admin"] },
   { href: "/personen/lehrpersonen", label: "Lehrpersonen", roles: ["office", "admin"] },
   { href: "/personen/bueromitarbeitende", label: "Büromitarbeitende", roles: ["office", "admin"] },
+  { href: "/einstellungen", label: "Einstellungen", roles: ["office", "admin"] },
 ];
 
 export function AdminNav({ user }: { user: { name: string; roles: Role[] } }) {

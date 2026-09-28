@@ -75,6 +75,19 @@ export function RoomManager({ initialRooms, locations }: { initialRooms: Room[];
     }
   }
 
+  async function remove(room: Room) {
+    if (!window.confirm(`Raum «${room.name}» wirklich löschen?`)) return;
+    setError(null);
+    setNotice(null);
+    try {
+      await api.delete(`/api/rooms/${room.id}`);
+      setItems((current) => current.filter((item) => item.id !== room.id));
+      setNotice("Raum gelöscht.");
+    } catch (caught) {
+      setError(errorMessage(caught));
+    }
+  }
+
   const canCreate = locations.length > 0;
 
   return (
@@ -168,6 +181,9 @@ export function RoomManager({ initialRooms, locations }: { initialRooms: Room[];
                       </button>
                       <button className="button button--secondary button--small" onClick={() => void toggleActive(room)} type="button">
                         {room.active ? "Deaktivieren" : "Aktivieren"}
+                      </button>
+                      <button className="button button--secondary button--small" onClick={() => void remove(room)} type="button">
+                        Löschen
                       </button>
                     </div>
                   </td>

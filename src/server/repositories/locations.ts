@@ -66,3 +66,8 @@ export async function updateLocation(sql: Sql, id: string, patch: LocationPatch)
   `;
   return row ? toLocation(row) : null;
 }
+
+export async function deleteLocation(sql: Sql, id: string): Promise<boolean> {
+  const result = await sql`DELETE FROM locations WHERE id = ${id}`;
+  return result.count > 0;
+}

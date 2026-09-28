@@ -28,7 +28,8 @@ export async function listRooms(sql: Sql, includeInactive = false): Promise<Room
     SELECT rooms.id, rooms.location_id, locations.name AS location_name, rooms.name, rooms.floor, rooms.capacity, rooms.active
     FROM rooms
     JOIN locations ON locations.id = rooms.location_id
-    WHERE rooms.active = true OR ${includeInactive}
+    WHERE (rooms.active = true OR ${includeInactive})
+      AND (locations.active = true OR ${includeInactive})
     ORDER BY locations.sort_order, rooms.name
   `;
   return rows.map(toRoom);
@@ -39,7 +40,9 @@ export async function listRoomsByLocation(sql: Sql, locationId: string, includeI
     SELECT rooms.id, rooms.location_id, locations.name AS location_name, rooms.name, rooms.floor, rooms.capacity, rooms.active
     FROM rooms
     JOIN locations ON locations.id = rooms.location_id
-    WHERE rooms.location_id = ${locationId} AND (rooms.active = true OR ${includeInactive})
+    WHERE rooms.location_id = ${locationId}
+      AND (rooms.active = true OR ${includeInactive})
+      AND (locations.active = true OR ${includeInactive})
     ORDER BY rooms.name
   `;
   return rows.map(toRoom);
@@ -94,4 +97,9 @@ export async function updateRoom(sql: Sql, id: string, patch: RoomPatch): Promis
     FROM updated JOIN locations ON locations.id = updated.location_id
   `;
   return row ? toRoom(row) : null;
+}
+
+export async function deleteRoom(sql: Sql, id: string): Promise<boolean> {
+  const result = await sql`DELETE FROM rooms WHERE id = ${id}`;
+  return result.count > 0;
 }

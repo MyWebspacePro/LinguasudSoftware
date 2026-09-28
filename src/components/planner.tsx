@@ -124,7 +124,8 @@ function cellKey(date: string, roomId: string, minute: number): string {
 }
 
 export function Planner({ locations, rooms, canDecide }: { locations: Location[]; rooms: Room[]; canDecide: boolean }) {
-  const [rangeStart, setRangeStart] = useState(() => mondayOf(localDate(new Date())));
+  const [today] = useState(() => localDate(new Date()));
+  const [rangeStart, setRangeStart] = useState(() => mondayOf(today));
   const [selectedLocationId, setSelectedLocationId] = useState("all");
   const [selectedRoomId, setSelectedRoomId] = useState("all");
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -136,6 +137,7 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
   const [dragId, setDragId] = useState<string | null>(null);
 
   const dates = useMemo(() => Array.from({ length: VISIBLE_DAYS }, (_, index) => shiftDate(rangeStart, index)), [rangeStart]);
+  const firstRelevantDate = rangeStart < today ? today : rangeStart;
   const slots = useMemo(() => {
     const values: number[] = [];
     for (let minute = DAY_START; minute < DAY_END; minute += SLOT) values.push(minute);
@@ -199,7 +201,7 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
     let active = true;
     void (async () => {
       setError(null);
-      const from = dates[0];
+      const from = firstRelevantDate;
       const to = dates[dates.length - 1];
       try {
         const [lessonData, rentalData] = await Promise.all([
@@ -216,7 +218,7 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
     return () => {
       active = false;
     };
-  }, [canDecide, dates]);
+  }, [canDecide, dates, firstRelevantDate]);
 
   function replaceLesson(lesson: Lesson) {
     setLessons((current) => current.map((item) => (item.id === lesson.id ? lesson : item)));
@@ -224,7 +226,7 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
 
   async function refreshLessons() {
     try {
-      const data = await api.get<{ lessons: Lesson[] }>(`/api/lessons?from=${dates[0]}&to=${dates[dates.length - 1]}`);
+      const data = await api.get<{ lessons: Lesson[] }>(`/api/lessons?from=${firstRelevantDate}&to=${dates[dates.length - 1]}`);
       setLessons(data.lessons);
     } catch (caught) {
       setError(errorMessage(caught));
@@ -293,9 +295,9 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
     setBusy(true);
     setError(null);
     try {
-      const result = await api.post<{ created: number }>("/api/lessons", { from: dates[0], to: dates[dates.length - 1] });
-      setNotice(`${result.created} Lektionen für 14 Tage generiert.`);
-      const lessonData = await api.get<{ lessons: Lesson[] }>(`/api/lessons?from=${dates[0]}&to=${dates[dates.length - 1]}`);
+      const result = await api.post<{ created: number }>("/api/lessons", { from: firstRelevantDate, to: dates[dates.length - 1] });
+      setNotice(`${result.created} Lektionen für die sichtbaren Kalenderwochen generiert.`);
+      const lessonData = await api.get<{ lessons: Lesson[] }>(`/api/lessons?from=${firstRelevantDate}&to=${dates[dates.length - 1]}`);
       setLessons(lessonData.lessons);
     } catch (caught) {
       setError(errorMessage(caught));
@@ -304,31 +306,20 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
     }
   }
 
-  const todayWeek = mondayOf(localDate(new Date()));
+  const todayWeek = mondayOf(today);
   const nextWeek = shiftDate(todayWeek, 7);
-  const currentWindow = rangeStart === todayWeek;
   const firstWeekLabel = rangeStart === todayWeek ? "Aktuelle Woche" : rangeStart === nextWeek ? "Nächste Woche" : "Woche 1";
   const secondWeekStart = shiftDate(rangeStart, 7);
-  const secondWeekLabel = secondWeekStart === todayWeek ? "Aktuelle Woche" : secondWeekStart === nextWeek ? "Nächste Woche" : "Woche 2";
+  const secondWeekLabel = secondWeekStart === nextWeek ? "Nächste Woche" : "Woche 2";
 
   return (
     <>
       <div className="toolbar planner-toolbar">
-        <button className="button button--secondary button--small" onClick={() => setRangeStart((current) => shiftDate(current, -14))} type="button">
-          ‹ 2 Wochen
-        </button>
-        <label className="planner-toolbar__date">Startwoche
-          <input
-            onChange={(event) => event.target.value && setRangeStart(mondayOf(event.target.value))}
-            type="date"
-            value={rangeStart}
-          />
-        </label>
-        <button className="button button--secondary button--small" onClick={() => setRangeStart((current) => shiftDate(current, 14))} type="button">
-          2 Wochen ›
+        <button className="button button--secondary button--small" onClick={() => setRangeStart((current) => shiftDate(current, 7))} type="button">
+          Nächste Kalenderwoche ›
         </button>
         <button className="button button--secondary button--small" onClick={() => setRangeStart(todayWeek)} type="button">
-          Aktuelle + nächste Woche
+          Aktuelle + nächste Kalenderwoche
         </button>
         <label className="planner-toolbar__filter">Standort
           <select onChange={(event) => { setSelectedLocationId(event.target.value); setSelectedRoomId("all"); }} value={selectedLocationId}>
@@ -390,7 +381,7 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
           <div className="planner__body">
             <div className="planner__time-col">
               {slots.map((minute) => (
-                <div className={`planner__time${(minute - DAY_START) % 60 === 0 ? " planner__time--hour" : ""}`} key={minute}>
+                <div className={`planner__time${minute % 60 === 0 ? " planner__time--hour" : ""}`} key={minute}>
                   {minutesToTime(minute)}
                 </div>
               ))}
@@ -403,7 +394,7 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
                   return (
                     <div
                       aria-label={`${formatDay(date, "long")} ${room.name} ${minutesToTime(minute)}`}
-                      className={`planner__slot${(minute - DAY_START) % 60 === 0 ? " planner__slot--hour" : ""}`}
+                      className={`planner__slot${minute % 60 === 0 ? " planner__slot--hour" : ""}`}
                       key={minute}
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={(event) => onDrop(event, date, room.id, minute)}
@@ -450,7 +441,7 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
         </div>
       </div>
 
-      {currentWindow ? <p className="planner__caption">Ansicht: aktuelle und nächste Woche · 14 Tage · 06:30–22:30 Uhr</p> : null}
+      <p className="planner__caption">Ansicht: zwei Kalenderwochen · Belegungen ab heute · 06:30–22:30 Uhr</p>
 
       {selected ? (
         <div className="card" style={{ marginTop: "1rem" }}>
