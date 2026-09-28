@@ -437,6 +437,124 @@ table.data tr:last-child td {
   padding: 0.75rem 0;
 }
 
+/* ------------------------------------------------------------------ Planner */
+
+.planner {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: auto;
+  max-height: 72vh;
+}
+
+.planner__head {
+  display: flex;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 2;
+  border-bottom: 1px solid var(--border);
+}
+
+.planner__corner {
+  flex: 0 0 60px;
+  width: 60px;
+}
+
+.planner__room-head {
+  flex: 1 0 150px;
+  min-width: 150px;
+  padding: 0.4rem 0.5rem;
+  border-left: 1px solid var(--border);
+  font-size: 0.82rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.planner__location {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.planner__body {
+  display: flex;
+  position: relative;
+}
+
+.planner__times {
+  flex: 0 0 60px;
+  width: 60px;
+}
+
+.planner__time {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-align: right;
+  padding-right: 0.4rem;
+}
+
+.planner__col {
+  flex: 1 0 150px;
+  min-width: 150px;
+  position: relative;
+  border-left: 1px solid var(--border);
+}
+
+.planner__slot {
+  border-bottom: 1px solid #eef2ef;
+}
+
+.planner__slot--hour {
+  border-bottom-color: var(--border);
+}
+
+.planner__lesson {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  background: var(--success-bg);
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  padding: 2px 4px;
+  font-size: 0.72rem;
+  text-align: left;
+  cursor: grab;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  line-height: 1.2;
+}
+
+.planner__lesson span {
+  color: var(--text-muted);
+}
+
+.planner__lesson.is-provisional {
+  border-style: dashed;
+  background: var(--warning-bg);
+}
+
+.planner__lesson.is-cancelled {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.planner__rental {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  background: #e9eef5;
+  border: 1px solid #9aa9c0;
+  border-radius: 6px;
+  padding: 2px 4px;
+  font-size: 0.72rem;
+  color: #33415c;
+  overflow: hidden;
+}
+
 /* ------------------------------------------------------------------ Login */
 
 .login-page {

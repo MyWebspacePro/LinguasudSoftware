@@ -29,3 +29,7 @@ export type {
   Enrollment,
   EnrollmentStatus,
 } from "@/lib/types/enrollment";
+export { LESSON_STATUSES, RENTAL_KINDS } from "@/lib/types/lesson";
+export type { Lesson, LessonStatus, RentalKind, RoomRental } from "@/lib/types/lesson";
+export { ATTENDANCE_STATUSES } from "@/lib/types/attendance";
+export type { AttendanceStatus, LessonAttendanceRow } from "@/lib/types/attendance";

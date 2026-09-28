@@ -10,6 +10,7 @@ type NavItem = { href: string; label: string; roles?: Role[] };
 
 const items: NavItem[] = [
   { href: "/", label: "Übersicht" },
+  { href: "/planer", label: "Belegungsplan", roles: ["office", "admin", "teacher"] },
   { href: "/personen", label: "Personen", roles: ["office", "admin", "finance"] },
   { href: "/kurse", label: "Kurse", roles: ["office", "admin"] },
   { href: "/kursstammdaten", label: "Kursstammdaten", roles: ["office", "admin"] },
@@ -17,6 +18,7 @@ const items: NavItem[] = [
   { href: "/anmeldungen", label: "Anmeldungen", roles: ["office", "admin", "finance"] },
   { href: "/standorte", label: "Standorte", roles: ["office", "admin"] },
   { href: "/raeume", label: "Räume", roles: ["office", "admin"] },
+  { href: "/vermietungen", label: "Raumvermietung", roles: ["office", "admin"] },
   { href: "/organisationen", label: "Kostenträger", roles: ["office", "admin", "finance"] },
 ];
 
