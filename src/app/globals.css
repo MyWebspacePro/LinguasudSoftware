@@ -706,3 +706,76 @@ table.data tr:last-child td {
   color: var(--text-muted);
   font-size: 0.75rem;
 }
+
+/* ------------------------------------------------------------------ Public website */
+
+.public-site { min-height: 100vh; display: flex; flex-direction: column; background: #f7f8f4; }
+.public-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; padding: 1rem max(1.25rem, calc((100vw - 1100px) / 2)); background: #112a20; color: #fff; }
+.public-header a { color: inherit; text-decoration: none; }
+.public-logo { display: inline-flex; flex-direction: column; font-weight: 750; font-size: 1.4rem; line-height: 1.1; }
+.public-logo span { color: #b3d6bd; font-size: 0.78rem; font-weight: 500; }
+.public-nav, .public-languages { display: flex; flex-wrap: wrap; align-items: center; gap: 0.9rem; font-size: 0.92rem; }
+.public-nav a:hover, .public-languages a:hover { text-decoration: underline; }
+.public-languages [aria-current="page"] { border-bottom: 2px solid #fff; }
+.public-main { width: 100%; max-width: 1140px; padding: 0 1.25rem 3rem; margin: 0 auto; flex: 1; }
+.public-hero { background: #e4eee3; border-radius: 0 0 28px 28px; padding: clamp(2rem, 7vw, 5rem); margin-bottom: 3rem; }
+.public-hero h1 { max-width: 740px; font-size: clamp(2rem, 5vw, 4rem); line-height: 1.08; }
+.public-hero > p:not(.public-eyebrow) { max-width: 660px; font-size: 1.14rem; color: #374e3f; }
+.public-eyebrow { color: #27704d; font-size: 0.83rem; font-weight: 750; letter-spacing: 0.07em; text-transform: uppercase; }
+.public-actions, .public-section-heading, .public-course-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+.public-actions { justify-content: flex-start; margin-top: 2rem; }
+.public-button { display: inline-block; width: fit-content; background: var(--primary); color: #fff; border: 1px solid var(--primary); border-radius: 8px; padding: 0.6rem 1rem; font: inherit; text-decoration: none; font-weight: 600; cursor: pointer; }
+.public-button:hover { background: var(--primary-hover); color: #fff; }
+.public-button:disabled { opacity: 0.6; cursor: wait; }
+.public-button--secondary { background: transparent; color: var(--primary); }
+.public-button--secondary:hover { background: #dde9de; color: var(--primary); }
+.public-section { padding: 2.5rem 0; }
+.public-section h1 { font-size: clamp(2rem, 4vw, 3rem); }
+.public-section-heading { margin-bottom: 1.5rem; align-items: flex-start; }
+.public-cards, .public-course-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1rem; }
+.public-card { display: flex; flex-direction: column; align-items: flex-start; gap: 0.65rem; padding: 1.5rem; background: #fff; border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+.public-card h2, .public-card h3, .public-card p { margin: 0; }
+.public-card .public-button { margin-top: auto; }
+.public-card .public-eyebrow { color: var(--primary); }
+.public-course-header { align-items: baseline; width: 100%; font-size: 0.83rem; color: var(--text-muted); }
+.public-course-header strong { color: var(--primary); }
+.public-course-code { font-size: 0.8rem; color: var(--text-muted); }
+.public-schedule { padding-left: 1.25rem; margin: 0.3rem 0; }
+.public-filters { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.public-filters a { border: 1px solid var(--border); background: #fff; border-radius: 20px; text-decoration: none; padding: 0.35rem 0.8rem; }
+.public-filters a[aria-current="page"] { color: #fff; background: var(--primary); border-color: var(--primary); }
+.public-editorial { max-width: 760px; }
+.public-editorial > p { white-space: pre-line; line-height: 1.7; }
+.public-editorial .public-button { margin-top: 1rem; }
+.public-form { max-width: 780px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; background: #fff; padding: clamp(1rem, 3vw, 2rem); border: 1px solid var(--border); border-radius: 12px; }
+.public-form > label:not(.public-consent):not(.public-hidden) { display: flex; flex-direction: column; gap: 0.35rem; font-weight: 600; }
+.public-form input:not([type="checkbox"]):not([type="radio"]), .public-form select, .public-form textarea { width: 100%; font: inherit; padding: 0.6rem; border: 1px solid var(--border); border-radius: 8px; }
+.public-form-wide, .public-questions, .public-form > .alert { grid-column: 1 / -1; }
+.public-consent { display: flex; align-items: flex-start; gap: 0.5rem; }
+.public-consent input { margin-top: 0.35rem; }
+.public-questions { display: grid; gap: 1rem; }
+.public-questions fieldset { display: flex; flex-direction: column; gap: 0.4rem; border: 1px solid var(--border); border-radius: 8px; }
+.public-questions legend { font-weight: 650; padding: 0 0.3rem; }
+.public-questions label { display: flex; gap: 0.5rem; align-items: center; }
+.public-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.public-feedback { background: var(--success-bg); border: 1px solid #9dc7aa; border-radius: 10px; padding: 1rem; }
+.public-note { font-size: 0.86rem; color: var(--text-muted); }
+.public-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; background: #112a20; color: #d7e7dd; padding: 1.5rem max(1.25rem, calc((100vw - 1100px) / 2)); font-size: 0.85rem; }
+.public-footer a { color: inherit; }
+
+@media (max-width: 650px) {
+  .public-header { align-items: flex-start; }
+  .public-nav { order: 3; width: 100%; }
+  .public-form { grid-template-columns: 1fr; }
+  .public-form-wide, .public-questions, .public-form > .alert { grid-column: 1; }
+  .public-hero { margin: 0 -1.25rem 1rem; border-radius: 0 0 20px 20px; }
+}
+
+@media print {
+  body, .public-site { background: white; color: black; }
+  .public-header, .public-footer, .public-filters, .print-hidden, .public-card .public-button { display: none !important; }
+  .public-main { max-width: none; padding: 0; }
+  .public-section { padding: 0; }
+  .public-card { box-shadow: none; border: 1px solid #bbb; break-inside: avoid; }
+  .public-course-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
