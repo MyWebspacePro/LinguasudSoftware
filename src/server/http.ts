@@ -28,6 +28,10 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
+function isExclusionViolation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "23P01";
+}
+
 export type RouteBody = { status?: number; body: unknown };
 
 /**
@@ -52,6 +56,9 @@ export async function jsonRoute(handler: () => Promise<RouteBody>): Promise<Next
     }
     if (isUniqueViolation(error)) {
       return NextResponse.json({ error: "Der Datensatz existiert bereits." }, { status: 409 });
+    }
+    if (isExclusionViolation(error)) {
+      return NextResponse.json({ error: "Die Raum- oder Lehrpersonenbelegung überschneidet sich mit einer bestehenden Lektion." }, { status: 409 });
     }
     console.error("[api]", error);
     return NextResponse.json({ error: "Unerwarteter Fehler." }, { status: 500 });

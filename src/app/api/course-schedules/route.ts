@@ -70,6 +70,7 @@ function errorResponse(error: unknown, fallback: string) {
   if (error instanceof Error && error.message === "UNAUTHORIZED") return NextResponse.json({ error: "Nicht berechtigt." }, { status: 403 });
   if (error instanceof Error && error.message === "COURSE_SCHEDULE_CONFLICT") return NextResponse.json({ error: "Der neue Wochenplan kollidiert mit einer bestehenden Raumbelegung oder Lehrperson." }, { status: 409 });
   if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") return NextResponse.json({ error: "Für diesen Wochentag existiert bereits ein Termin." }, { status: 409 });
+  if (typeof error === "object" && error !== null && "code" in error && error.code === "23P01") return NextResponse.json({ error: "Der neue Wochenplan kollidiert mit einer bestehenden Raumbelegung oder Lehrperson." }, { status: 409 });
   return NextResponse.json({ error: fallback }, { status: 500 });
 }
 
