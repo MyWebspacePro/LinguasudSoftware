@@ -546,7 +546,7 @@ table.data tr:last-child td {
   padding-right: 0.45rem;
   background: var(--surface);
   color: var(--text-muted);
-  font-size: 0.64rem;
+  font-size: 0.7rem;
   font-weight: 600;
 }
 
@@ -558,7 +558,7 @@ table.data tr:last-child td {
   justify-content: center;
   gap: 0.05rem;
   border-left: 1px solid var(--border);
-  font-size: 0.68rem;
+  font-size: 0.76rem;
 }
 
 .planner__room-title {
@@ -571,7 +571,7 @@ table.data tr:last-child td {
   border-left: 1px solid var(--border);
   border-top: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 0.61rem;
+  font-size: 0.68rem;
   font-weight: 600;
   text-align: left;
   writing-mode: vertical-rl;
@@ -580,7 +580,7 @@ table.data tr:last-child td {
 
 .planner__location-title {
   display: flex;
-  min-height: 22px;
+  min-height: 24px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -589,7 +589,7 @@ table.data tr:last-child td {
   border-top: 1px solid var(--border);
   background: #f2f6f3;
   color: var(--primary);
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-align: center;
   text-overflow: ellipsis;
@@ -597,16 +597,22 @@ table.data tr:last-child td {
 }
 
 .planner__day-title strong {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
 }
 
 .planner__day-title span {
   color: var(--text-muted);
-  font-size: 0.61rem;
+  font-size: 0.68rem;
 }
 
 .planner__day-title.is-today {
   background: #e8f2ec;
+  color: var(--primary);
+}
+
+.planner__day-title.is-drop-day,
+.planner__room-title.is-drop-room {
+  background: #dcefe2;
   color: var(--primary);
 }
 
@@ -619,16 +625,16 @@ table.data tr:last-child td {
   left: 0;
   z-index: 2;
   display: grid;
-  grid-auto-rows: 14px;
+  grid-auto-rows: 16px;
   background: var(--surface);
   border-right: 1px solid var(--border);
 }
 
 .planner__time {
-  height: 14px;
+  height: 16px;
   padding-right: 0.3rem;
   color: var(--text-muted);
-  font-size: 0.55rem;
+  font-size: 0.65rem;
   line-height: 1;
   text-align: right;
   transform: translateY(-0.2rem);
@@ -645,18 +651,18 @@ table.data tr:last-child td {
 }
 
 .planner__time-end {
-  height: 14px;
+  height: 16px;
   padding-right: 0.3rem;
   color: var(--text);
-  font-size: 0.55rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  line-height: 0.85rem;
+  line-height: 1rem;
   text-align: right;
 }
 
 .planner__room-column {
   display: grid;
-  grid-template-rows: repeat(64, 14px) 14px;
+  grid-template-rows: repeat(64, 16px) 16px;
   min-width: 0;
   border-left: 1px solid var(--border);
 }
@@ -674,6 +680,27 @@ table.data tr:last-child td {
   border-top: 1px solid #cbd6cf;
 }
 
+.planner__slot.is-drop-target {
+  position: relative;
+  z-index: 3;
+  background: #cce7d3;
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+.planner__slot.is-drop-target::after {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  z-index: 4;
+  padding: 0.12rem 0.35rem;
+  border-radius: 3px;
+  background: var(--primary);
+  color: #fff;
+  content: "Ziel";
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+
 .planner__entry {
   display: flex;
   position: relative;
@@ -682,8 +709,8 @@ table.data tr:last-child td {
   overflow: visible;
   padding: 0 1px;
   border-radius: 2px;
-  font-size: 0.52rem;
-  line-height: 1.05;
+  font-size: 0.59rem;
+  line-height: 1.15;
   text-align: left;
 }
 
@@ -699,6 +726,14 @@ table.data tr:last-child td {
   background: var(--success-bg);
   border: 1px solid var(--primary);
   color: var(--text);
+}
+
+.planner__lesson.is-drag-source {
+  opacity: 0.45;
+}
+
+.planner__lesson:not([draggable="true"]) {
+  cursor: default;
 }
 
 .planner__lesson > span:not(.planner__tooltip) {
@@ -742,6 +777,17 @@ table.data tr:last-child td {
   opacity: 1;
   transform: translateY(0);
   visibility: visible;
+}
+
+.planner__drop-status {
+  margin: 0.65rem 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #82ad8e;
+  border-radius: 6px;
+  background: #edf7ef;
+  color: #244a30;
+  font-size: 0.86rem;
+  font-weight: 600;
 }
 
 .planner__lesson.is-provisional {
@@ -801,6 +847,72 @@ table.data tr:last-child td {
 
 .settings-card p {
   margin: 0;
+  color: var(--text-muted);
+}
+
+.people-filter {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0.85rem 0;
+}
+
+.people-filter .field {
+  min-width: min(100%, 250px);
+}
+
+.people-filter p {
+  margin: 0 0 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.participant-record h3 {
+  margin: 1.5rem 0 0.6rem;
+}
+
+.participant-record__summary {
+  margin-bottom: 0.8rem;
+}
+
+.participant-record__note-form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.participant-record__note-form textarea {
+  min-height: 76px;
+  padding: 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font: inherit;
+  resize: vertical;
+}
+
+.participant-record__note-form .button {
+  justify-self: start;
+}
+
+.participant-record__notes {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0;
+  list-style: none;
+}
+
+.participant-record__notes li {
+  padding: 0.65rem 0.75rem;
+  border-left: 3px solid var(--primary);
+  background: #f5f8f5;
+}
+
+.participant-record__notes p,
+.participant-record__notes small {
+  margin: 0;
+}
+
+.participant-record__notes small {
   color: var(--text-muted);
 }
 

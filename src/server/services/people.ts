@@ -93,6 +93,80 @@ export function getPerson(id: string): Promise<Person | null> {
   return repo.getPerson(db(), id);
 }
 
+export async function getParticipantRecord(id: string) {
+  const person = await repo.getPerson(db(), id);
+  if (!person || !person.roles.includes("participant")) throw notFound("Teilnehmende Person wurde nicht gefunden.");
+  const sql = db();
+  const [enrollments, attendance, invoices, notes] = await Promise.all([
+    sql`
+      SELECT e.id, e.status, e.active, e.billing_type AS "billingType", e.agreed_price_chf AS "agreedPriceChf",
+             e.agreed_lessons AS "agreedLessons", e.started_on AS "startedOn", e.ended_on AS "endedOn",
+             c.code AS "courseCode", languages.name AS "languageName", c.level,
+             teacher.first_name || ' ' || teacher.last_name AS "teacherName",
+             rooms.name AS "roomName", locations.name AS "locationName"
+      FROM enrollments e
+      JOIN courses c ON c.id = e.course_id
+      JOIN languages ON languages.id = c.language_id
+      JOIN users teacher ON teacher.id = c.teacher_id
+      LEFT JOIN rooms ON rooms.id = c.standard_room_id
+      LEFT JOIN locations ON locations.id = rooms.location_id
+      WHERE e.participant_id = ${id}
+      ORDER BY e.active DESC, e.started_on DESC NULLS LAST, c.code
+    `,
+    sql`
+      SELECT a.id, a.status, a.note, l.starts_at AS "startsAt", l.duration_minutes AS "durationMinutes",
+             l.status AS "lessonStatus", c.code AS "courseCode"
+      FROM attendance a
+      JOIN enrollments e ON e.id = a.enrollment_id
+      JOIN lessons l ON l.id = a.lesson_id
+      JOIN courses c ON c.id = l.course_id
+      WHERE e.participant_id = ${id}
+      ORDER BY l.starts_at DESC
+      LIMIT 100
+    `,
+    sql`
+      SELECT invoices.id, invoices.number, invoices.kind, invoices.amount_chf AS "amountChf", invoices.status,
+             invoices.issued_on AS "issuedOn", invoices.due_on AS "dueOn", invoices.paid_on AS "paidOn",
+             courses.code AS "courseCode"
+      FROM invoices
+      JOIN enrollments ON enrollments.id = invoices.enrollment_id
+      JOIN courses ON courses.id = enrollments.course_id
+      WHERE enrollments.participant_id = ${id}
+      ORDER BY invoices.issued_on DESC NULLS LAST, invoices.created_at DESC
+    `,
+    sql`
+      SELECT person_notes.id, person_notes.body, person_notes.created_at AS "createdAt",
+             COALESCE(creator.first_name || ' ' || creator.last_name, 'System') AS "createdBy"
+      FROM person_notes
+      LEFT JOIN users creator ON creator.id = person_notes.created_by
+      WHERE person_notes.user_id = ${id}
+      ORDER BY person_notes.created_at DESC
+    `,
+  ]);
+  return { person, enrollments, attendance, invoices, notes };
+}
+
+export async function addPersonNote(actor: SessionUser, id: string, body: string) {
+  return db().begin(async (tx) => {
+    const person = await repo.getPerson(tx, id);
+    if (!person) throw notFound("Person wurde nicht gefunden.");
+    const [note] = await tx<{ id: string; body: string; created_at: Date }[]>`
+      INSERT INTO person_notes (user_id, body, created_by)
+      VALUES (${id}, ${body}, ${actor.id})
+      RETURNING id, body, created_at
+    `;
+    await recordChange(tx, {
+      entityType: "person",
+      entityId: id,
+      eventType: "note_added",
+      summary: `Notiz für «${person.firstName} ${person.lastName}» erfasst`,
+      after: { note: note.body },
+      actorId: actor.id,
+    });
+    return { id: note.id, body: note.body, createdAt: note.created_at.toISOString(), createdBy: actor.name };
+  });
+}
+
 export async function createPerson(actor: SessionUser, data: CreateData): Promise<Person> {
   return db().begin(async (tx) => {
     const id = await repo.insertPerson(tx, {

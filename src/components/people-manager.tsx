@@ -1,10 +1,11 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useDeferredValue, useState } from "react";
 
 import { api, errorMessage } from "@/lib/api-client";
 import { ROLES, type Role } from "@/lib/roles";
 import { SALUTATIONS, type Person, type Salutation } from "@/lib/types";
+import { ParticipantRecord } from "@/components/participant-record";
 
 const ROLE_LABELS: Record<Role, string> = {
   office: "Büro",
@@ -73,6 +74,18 @@ export function PeopleManager({ initialPeople, defaultRole = "participant" }: { 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
+  const deferredSearch = useDeferredValue(search);
+
+  const visibleItems = items.filter((person) => {
+    const query = deferredSearch.trim().toLocaleLowerCase("de-CH");
+    const matchesSearch = !query || [person.firstName, person.lastName, person.email, person.phone1, person.phone2, person.city].some((value) => value?.toLocaleLowerCase("de-CH").includes(query));
+    const matchesStatus = statusFilter === "all" || (statusFilter === "active" ? person.active : !person.active);
+    return matchesSearch && matchesStatus;
+  });
+  const selectedParticipant = defaultRole === "participant" ? items.find((person) => person.id === selectedParticipantId) ?? null : null;
 
   function reset() {
     setForm({ ...emptyForm, roles: [defaultRole] });
@@ -283,8 +296,25 @@ export function PeopleManager({ initialPeople, defaultRole = "participant" }: { 
 
       <div className="card">
         <h2>{SECTION_LABELS[defaultRole]}</h2>
+        <div className="people-filter">
+          <label className="field">
+            <span>Suche</span>
+            <input onChange={(event) => setSearch(event.target.value)} placeholder="Name, E-Mail, Telefon oder Ort" type="search" value={search} />
+          </label>
+          <label className="field">
+            <span>Status</span>
+            <select onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} value={statusFilter}>
+              <option value="all">Alle</option>
+              <option value="active">Aktiv</option>
+              <option value="inactive">Inaktiv</option>
+            </select>
+          </label>
+          <p>{visibleItems.length} von {items.length}</p>
+        </div>
         {items.length === 0 ? (
           <p className="empty">Noch keine Personen erfasst.</p>
+        ) : visibleItems.length === 0 ? (
+          <p className="empty">Keine passende Person gefunden.</p>
         ) : (
           <table className="data">
             <thead>
@@ -297,7 +327,7 @@ export function PeopleManager({ initialPeople, defaultRole = "participant" }: { 
               </tr>
             </thead>
             <tbody>
-              {items.map((person) => (
+              {visibleItems.map((person) => (
                 <tr key={person.id}>
                   <td>
                     {person.salutation ? `${SALUTATION_LABELS[person.salutation]} ` : ""}
@@ -318,6 +348,7 @@ export function PeopleManager({ initialPeople, defaultRole = "participant" }: { 
                       <button className="button button--secondary button--small" onClick={() => void toggleActive(person)} type="button">
                         {person.active ? "Deaktivieren" : "Aktivieren"}
                       </button>
+                      {defaultRole === "participant" ? <button className="button button--secondary button--small" onClick={() => setSelectedParticipantId(person.id)} type="button">Akte</button> : null}
                     </div>
                   </td>
                 </tr>
@@ -326,6 +357,7 @@ export function PeopleManager({ initialPeople, defaultRole = "participant" }: { 
           </table>
         )}
       </div>
+      {selectedParticipant ? <ParticipantRecord key={selectedParticipant.id} onClose={() => setSelectedParticipantId(null)} participantId={selectedParticipant.id} participantName={`${selectedParticipant.firstName} ${selectedParticipant.lastName}`} /> : null}
     </>
   );
 }

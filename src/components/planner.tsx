@@ -23,6 +23,7 @@ type RentalBlock = {
 };
 
 type CellEntries = { lessons: Lesson[]; rentals: RentalBlock[] };
+type DropTarget = { date: string; roomId: string; minute: number };
 
 function localDate(date: Date): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -135,6 +136,7 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
 
   const dates = useMemo(() => Array.from({ length: VISIBLE_DAYS }, (_, index) => shiftDate(rangeStart, index)), [rangeStart]);
   const firstRelevantDate = rangeStart < today ? today : rangeStart;
@@ -250,10 +252,15 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
     }
   }
 
+  function setTarget(date: string, roomId: string, minute: number) {
+    setDropTarget((current) => current?.date === date && current.roomId === roomId && current.minute === minute ? current : { date, roomId, minute });
+  }
+
   function onDrop(event: DragEvent<HTMLDivElement>, date: string, roomId: string, minute: number) {
     event.preventDefault();
     const lessonId = dragId ?? event.dataTransfer.getData("text/plain");
     setDragId(null);
+    setDropTarget(null);
     const lesson = lessons.find((item) => item.id === lessonId);
     if (lesson) void moveLesson(lesson, date, roomId, minute);
   }
@@ -311,6 +318,7 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
   const firstWeekLabel = rangeStart === todayWeek ? "Aktuelle Woche" : rangeStart === nextWeek ? "Nächste Woche" : "Woche 1";
   const secondWeekStart = shiftDate(rangeStart, 7);
   const secondWeekLabel = secondWeekStart === nextWeek ? "Nächste Woche" : "Woche 2";
+  const targetRoom = dropTarget ? roomColumns.find((room) => room.id === dropTarget.roomId) : null;
 
   return (
     <>
@@ -348,7 +356,8 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
       {error ? <div className="alert alert--error" role="alert">{error}</div> : null}
       {notice ? <div className="alert alert--success" role="status">{notice}</div> : null}
 
-      <div className="planner__viewport" aria-label="Zimmerbelegung für 14 Tage">
+      {dragId && dropTarget && targetRoom ? <p className="planner__drop-status" role="status">Verschieben nach: {formatDay(dropTarget.date, "long")} · {targetRoom.name} · {minutesToTime(dropTarget.minute)}</p> : null}
+      <div className={`planner__viewport${dragId ? " is-dragging" : ""}`} aria-label="Zimmerbelegung für 14 Tage">
         <div className="planner__calendar" style={{ "--planner-column-count": dates.length * roomColumns.length } as React.CSSProperties}>
           <div className="planner__headers">
             <div className="planner__week-head">
@@ -363,7 +372,7 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
             <div className="planner__day-head">
               <div className="planner__time-head">Uhrzeit</div>
               {dates.map((date) => (
-                <div className={`planner__day-title${date === localDate(new Date()) ? " is-today" : ""}`} key={date} style={{ gridColumn: `span ${roomColumns.length}` }} title={formatDay(date, "long")}>
+                <div className={`planner__day-title${date === localDate(new Date()) ? " is-today" : ""}${dropTarget?.date === date ? " is-drop-day" : ""}`} key={date} style={{ gridColumn: `span ${roomColumns.length}` }} title={formatDay(date, "long")}>
                   <strong>{formatWeekday(date)}</strong>
                   <span>{date.slice(8, 10)}.{date.slice(5, 7)}.</span>
                 </div>
@@ -374,7 +383,7 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
                 </div>
               )))}
               {dates.flatMap((date) => roomColumns.map((room) => (
-                <div className="planner__room-title" key={`${date}:${room.id}`} title={room.name}>{room.name}</div>
+                <div className={`planner__room-title${dropTarget?.date === date && dropTarget.roomId === room.id ? " is-drop-room" : ""}`} key={`${date}:${room.id}`} title={room.name}>{room.name}</div>
               )))}
             </div>
           </div>
@@ -391,23 +400,31 @@ export function Planner({ locations, rooms, canDecide }: { locations: Location[]
               <div className="planner__room-column" key={`${date}:${room.id}`}>
                 {slots.map((minute) => {
                   const entries = entriesByCell.get(cellKey(date, room.id, minute));
+                  const isDropTarget = dropTarget?.date === date && dropTarget.roomId === room.id && dropTarget.minute === minute;
                   return (
                     <div
                       aria-label={`${formatDay(date, "long")} ${room.name} ${minutesToTime(minute)}`}
-                      className={`planner__slot${minute % 60 === 0 ? " planner__slot--hour" : ""}`}
+                      className={`planner__slot${minute % 60 === 0 ? " planner__slot--hour" : ""}${isDropTarget ? " is-drop-target" : ""}`}
                       key={minute}
-                      onDragOver={(event) => event.preventDefault()}
+                      onDragOver={(event) => {
+                        if (!dragId) return;
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = "move";
+                        setTarget(date, room.id, minute);
+                      }}
                       onDrop={(event) => onDrop(event, date, room.id, minute)}
                     >
                       {entries?.lessons.map((lesson) => (
                         <button
-                          className={`planner__entry planner__lesson${lesson.isProvisional ? " is-provisional" : ""}${lesson.status === "cancelled" ? " is-cancelled" : ""}`}
-                          draggable
+                          className={`planner__entry planner__lesson${lesson.isProvisional ? " is-provisional" : ""}${lesson.status === "cancelled" ? " is-cancelled" : ""}${dragId === lesson.id ? " is-drag-source" : ""}`}
+                          draggable={canDecide && lesson.status !== "cancelled"}
                           key={lesson.id}
                           onClick={() => setSelectedId(lesson.id)}
-                          onDragEnd={() => setDragId(null)}
+                          onDragEnd={() => { setDragId(null); setDropTarget(null); }}
                           onDragStart={(event) => {
+                            if (!canDecide || lesson.status === "cancelled") return;
                             setDragId(lesson.id);
+                            event.dataTransfer.effectAllowed = "move";
                             event.dataTransfer.setData("text/plain", lesson.id);
                           }}
                           aria-label={`${lesson.courseCode}, ${lesson.languageName} ${lesson.level}, Lehrperson ${lesson.teacherName}, ${lesson.participantCount} Teilnehmende, ${minutesToTime(zurichMinutes(lesson.startsAt))}, ${lesson.roomName ?? "Kein Raum"}`}
