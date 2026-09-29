@@ -474,14 +474,14 @@ table.data tr:last-child td {
 }
 
 .planner__calendar {
-  min-width: calc(56px + (var(--planner-column-count) * 54px));
+  min-width: calc(44px + (var(--planner-column-count) * 40px));
 }
 
 .planner__week-head,
 .planner__day-head,
 .planner__body {
   display: grid;
-  grid-template-columns: 56px repeat(var(--planner-column-count), minmax(54px, 1fr));
+  grid-template-columns: 44px repeat(var(--planner-column-count), minmax(40px, 1fr));
 }
 
 .planner__headers {
@@ -492,7 +492,7 @@ table.data tr:last-child td {
 }
 
 .planner__week-head {
-  min-height: 54px;
+  min-height: 42px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -546,24 +546,24 @@ table.data tr:last-child td {
   padding-right: 0.45rem;
   background: var(--surface);
   color: var(--text-muted);
-  font-size: 0.7rem;
+  font-size: 0.64rem;
   font-weight: 600;
 }
 
 .planner__day-title {
   display: flex;
-  min-height: 44px;
+  min-height: 36px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.05rem;
   border-left: 1px solid var(--border);
-  font-size: 0.76rem;
+  font-size: 0.68rem;
 }
 
 .planner__room-title {
   display: flex;
-  min-height: 96px;
+  min-height: 68px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -571,7 +571,7 @@ table.data tr:last-child td {
   border-left: 1px solid var(--border);
   border-top: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: 0.61rem;
   font-weight: 600;
   text-align: left;
   writing-mode: vertical-rl;
@@ -580,7 +580,7 @@ table.data tr:last-child td {
 
 .planner__location-title {
   display: flex;
-  min-height: 28px;
+  min-height: 22px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -589,7 +589,7 @@ table.data tr:last-child td {
   border-top: 1px solid var(--border);
   background: #f2f6f3;
   color: var(--primary);
-  font-size: 0.7rem;
+  font-size: 0.62rem;
   font-weight: 700;
   text-align: center;
   text-overflow: ellipsis;
@@ -597,12 +597,12 @@ table.data tr:last-child td {
 }
 
 .planner__day-title strong {
-  font-size: 0.75rem;
+  font-size: 0.68rem;
 }
 
 .planner__day-title span {
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: 0.61rem;
 }
 
 .planner__day-title.is-today {
@@ -619,19 +619,19 @@ table.data tr:last-child td {
   left: 0;
   z-index: 2;
   display: grid;
-  grid-auto-rows: 24px;
+  grid-auto-rows: 14px;
   background: var(--surface);
   border-right: 1px solid var(--border);
 }
 
 .planner__time {
-  height: 24px;
-  padding-right: 0.42rem;
+  height: 14px;
+  padding-right: 0.3rem;
   color: var(--text-muted);
-  font-size: 0.65rem;
+  font-size: 0.55rem;
   line-height: 1;
   text-align: right;
-  transform: translateY(-0.35rem);
+  transform: translateY(-0.2rem);
 }
 
 .planner__time:first-child {
@@ -645,18 +645,18 @@ table.data tr:last-child td {
 }
 
 .planner__time-end {
-  height: 24px;
-  padding-right: 0.42rem;
+  height: 14px;
+  padding-right: 0.3rem;
   color: var(--text);
-  font-size: 0.65rem;
+  font-size: 0.55rem;
   font-weight: 700;
-  line-height: 1.2rem;
+  line-height: 0.85rem;
   text-align: right;
 }
 
 .planner__room-column {
   display: grid;
-  grid-template-rows: repeat(64, 24px) 24px;
+  grid-template-rows: repeat(64, 14px) 14px;
   min-width: 0;
   border-left: 1px solid var(--border);
 }
@@ -665,8 +665,8 @@ table.data tr:last-child td {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 1px;
-  padding: 1px;
+  gap: 0;
+  padding: 0;
   border-bottom: 1px solid #eef2ef;
 }
 
@@ -680,10 +680,10 @@ table.data tr:last-child td {
   min-width: 0;
   flex-direction: column;
   overflow: visible;
-  padding: 2px 3px;
-  border-radius: 4px;
-  font-size: 0.59rem;
-  line-height: 1.15;
+  padding: 0 1px;
+  border-radius: 2px;
+  font-size: 0.52rem;
+  line-height: 1.05;
   text-align: left;
 }
 
